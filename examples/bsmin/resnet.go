@@ -93,9 +93,6 @@ func NewBlock(resnetLayerNum int, LayerNum int, BlockNum int, layerStart int, la
 		convID1, convID2 = "CONV4", "CONV4"
 	}
 
-	fmt.Println(resnetLayerNum, convID1, ConvDepthPlan[layerStart], BlockNum, 1)
-	fmt.Println(resnetLayerNum, convID2, ConvDepthPlan[layerStart], BlockNum, 2)
-
 	return &Block{
 		blockNumForLog: BlockNum,
 		layerNumForLog: LayerNum,
@@ -143,18 +140,18 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 
 	var convDepthPlan []int
 	if resnetLayerNum == 20 {
-		// convDepthPlan = []int{
-		// 	2,
-		// 	2, 2, 2, 2, 2, 2,
-		// 	2, 2, 2, 2, 2, 2,
-		// 	2, 2, 2, 2, 2, 2,
-		// }
 		convDepthPlan = []int{
 			2,
-			3, 3, 3, 3, 3, 3,
-			3, 3, 3, 3, 3, 3,
-			3, 3, 3, 3, 3, 3,
+			2, 2, 2, 2, 2, 2,
+			2, 2, 2, 2, 2, 2,
+			2, 2, 2, 2, 2, 2,
 		}
+		// convDepthPlan = []int{
+		// 	2,
+		// 	3, 3, 3, 3, 3, 3,
+		// 	3, 3, 3, 3, 3, 3,
+		// 	3, 3, 3, 3, 3, 3,
+		// }
 
 	} else if resnetLayerNum == 32 {
 		convDepthPlan = []int{
@@ -290,20 +287,16 @@ func (obj ResnetCifar10) Inference(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 	fmt.Println("after conv1", tempCt.Level(), tempCt.Scale)
 
 	tempCt = obj.Relu1.Foward(tempCt)
-	obj.myLogSave("layer0End", tempCt)
-	fmt.Println("layer0End", tempCt.Level(), tempCt.Scale)
+	obj.myLogSave("layer0_layerEnd", tempCt)
 
 	tempCt = obj.Layer1.Foward(tempCt)
-	obj.myLogSave("layer1End", tempCt)
-	fmt.Println("layer1End", tempCt.Level(), tempCt.Scale)
+	obj.myLogSave("layer1_layerEnd", tempCt)
 
 	tempCt = obj.Layer2.Foward(tempCt)
-	obj.myLogSave("layer2End", tempCt)
-	fmt.Println("layer2End", tempCt.Level(), tempCt.Scale)
+	obj.myLogSave("layer2_layerEnd", tempCt)
 
 	tempCt = obj.Layer3.Foward(tempCt)
-	obj.myLogSave("layer3End", tempCt)
-	fmt.Println("layer3End", tempCt.Level(), tempCt.Scale)
+	obj.myLogSave("layer3_layerEnd", tempCt)
 
 	tempCt = obj.AvgPool.Foward(tempCt)
 	obj.myLogSave("AvgPoolEnd", tempCt)

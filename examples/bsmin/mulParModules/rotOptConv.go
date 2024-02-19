@@ -3,6 +3,7 @@ package mulParModules
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
@@ -139,8 +140,11 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	beforeLastFilter := kernelNum / this.convMap[this.lastFilterTreeDepth][1]
 	var splitedCiphertext []*rlwe.Ciphertext
 	for i := 0; i < this.convMap[this.lastFilterTreeDepth][1]; i++ {
+		start := time.Now()
 		//use dac Sum
 		mainCipher = this.dacSum(this.mode0TreeDepth-1, beforeLastFilter*i, beforeLastFilter*(i+1), rotInput)
+		fmt.Println(time.Now().Sub(start))
+		start = time.Now()
 
 		//mode 0
 		for treeDepth := this.mode0TreeDepth; treeDepth < this.lastFilterTreeDepth; treeDepth++ {
@@ -149,6 +153,9 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 			err = this.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 			ErrorPrint(err)
 		}
+
+		fmt.Println(time.Now().Sub(start))
+		start = time.Now()
 
 		// mode2, rotate
 		shift := 0
@@ -166,7 +173,8 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 			}
 			shift++
 		}
-
+		fmt.Println(time.Now().Sub(start))
+		start = time.Now()
 		//mode2, split
 		for s := 0; s < this.splitNum; s++ {
 			if i == 0 {
@@ -184,17 +192,21 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 				ErrorPrint(err)
 			}
 		}
-
+		fmt.Println(time.Now().Sub(start))
+		start = time.Now()
 	}
 
 	// mode 3
+	fmt.Println("mode3")
+	start := time.Now()
 	for i := 1; i < this.convMap[this.lastFilterTreeDepth+1][1]; i++ {
 		err = this.Evaluator.Rotate(splitedCiphertext[i], this.convMap[this.lastFilterTreeDepth+1][i+1], splitedCiphertext[i])
 		ErrorPrint(err)
 		err = this.Evaluator.Add(splitedCiphertext[0], splitedCiphertext[i], splitedCiphertext[0])
 		ErrorPrint(err)
 	}
-
+	fmt.Println(time.Now().Sub(start))
+	start = time.Now()
 	//copy paste
 	for treeDepth := this.lastFilterTreeDepth + 2; treeDepth < len(this.convMap); treeDepth++ {
 		if this.convMap[treeDepth][0] == 0 {
@@ -560,7 +572,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 				{0, 1024},
 				{0, 2048},
 				{2, 8, 1, 2, 32},
-				{3, 8, 4096 - 1024, 8192 - 2048, 8192 + 1024, 16384 - 32 - 32, 16384 - 32 - 32 + 4096 - 1024, 16384 - 32 - 32 + 8192 - 2048, 16384 - 32 - 32 + 8192 + 1024},
+				{3, 8, 1024*4 - 64, 1024 * 7, 1024*11 - 64, 1024 * 14, 1024*18 - 64, 1024 * 21, 1024*25 - 64},
 				{0, -4096},
 				{0, -8192},
 				{0, -16384},
@@ -574,7 +586,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 				{0, 1024},    //10
 				{0, 2048},    //11
 				{2, 2, 32},   //(11+1)*2 = 24
-				{3, 8, 4096 - 1024, 8192 - 2048, 8192 + 1024, 16384 - 32 - 32, 16384 - 32 - 32 + 4096 - 1024, 16384 - 32 - 32 + 8192 - 2048, 16384 - 32 - 32 + 8192 + 1024}, //24+7=31
+				{3, 8, 1024*4 - 64, 1024 * 7, 1024*11 - 64, 1024 * 14, 1024*18 - 64, 1024 * 21, 1024*25 - 64},
 				{0, -4096},  //32
 				{0, -8192},  //33
 				{0, -16384}, //34
@@ -589,7 +601,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 				{0, 1024},
 				{0, 2048},
 				{2, 2, 32},
-				{3, 8, 4096 - 1024, 8192 - 2048, 8192 + 1024, 16384 - 32 - 32, 16384 - 32 - 32 + 4096 - 1024, 16384 - 32 - 32 + 8192 - 2048, 16384 - 32 - 32 + 8192 + 1024},
+				{3, 8, 1024*4 - 64, 1024 * 7, 1024*11 - 64, 1024 * 14, 1024*18 - 64, 1024 * 21, 1024*25 - 64},
 				{0, -4096},
 				{0, -8192},
 				{0, -16384},

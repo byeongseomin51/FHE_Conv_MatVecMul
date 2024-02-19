@@ -412,8 +412,10 @@ func mulParConvTest(layerNum int, cc *customContext) {
 func rotOptConvTest(layerNum int, cc *customContext) {
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
-	convIDs := []string{"CONV1", "CONV2", "CONV3", "CONV3s2", "CONV4", "CONV4s2"}
-	maxDepth := []int{2, 4, 4, 5, 4, 5}
+	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	convIDs := []string{"CONV4"}
+	// maxDepth := []int{2, 4, 5, 4, 5, 4}
+	maxDepth := []int{2}
 	// maxDepth := []int{2, 2, 2, 2, 2, 2}
 
 	for index := 0; index < len(convIDs); index++ {
@@ -698,11 +700,18 @@ func rotIndexToGaloisElements(input []int, context *customContext) *ckks.Evaluat
 
 func setCKKSEnv() *customContext {
 	context := new(customContext)
+	// context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+	// 	LogN:            16,
+	// 	LogQ:            []int{49, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40},
+	// 	LogP:            []int{49, 49, 49},
+	// 	LogDefaultScale: 40,
+	// })
+
 	context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
 		LogN:            16,
-		LogQ:            []int{49, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40},
-		LogP:            []int{49, 49, 49},
-		LogDefaultScale: 40,
+		LogQ:            []int{51, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46},
+		LogP:            []int{60, 60, 60},
+		LogDefaultScale: 46,
 	})
 
 	context.Kgen = ckks.NewKeyGenerator(context.Params)
@@ -766,6 +775,30 @@ func resnetInferenceTest(layer int, cc *customContext) {
 	resnet20.Inference(cipherInput)
 
 }
+func prevResnetInferenceTest(layer int, cc *customContext) {
+	//get Float
+	exInput := txtToFloat("true_logs/layer0_input_data.txt")
+
+	//Make it to ciphertext
+	var copyInput []float64
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 4096; j++ {
+			if j < len(exInput) {
+				copyInput = append(copyInput, exInput[j])
+			} else {
+				copyInput = append(copyInput, 0)
+			}
+		}
+	}
+
+	cipherInput := floatToCiphertextLevel(copyInput, 6, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+	resnet20 := NewprevResnetCifar10(layer, cc.Evaluator, cc.Encoder, cc.Decryptor, cc.Params, cc.EncryptorSk, cc.Kgen, cc.Sk)
+
+	//cipherOutput :=
+	resnet20.Inference(cipherInput)
+
+}
 func reluTest(cc *customContext) {
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
@@ -816,9 +849,20 @@ func logsCompare() {
 			trueLogs := txtToFloat(trueLogsPath + currentFileName)
 			testLogs := txtToFloat(testLogsPath + currentFileName)
 
-			modifiedTrueLogs := packing(trueLogs, k)
+			var modifiedTrueLogs []float64
+			if currentFileName != "AvgPoolEnd.txt" && currentFileName != "FcEnd.txt" {
+				modifiedTrueLogs = packing(trueLogs, k)
 
-			modifiedTrueLogs = copyPaste(modifiedTrueLogs, 32768/len(modifiedTrueLogs))
+				modifiedTrueLogs = copyPaste(modifiedTrueLogs, 32768/len(modifiedTrueLogs))
+			} else if currentFileName == "AvgPoolEnd.txt" {
+				modifiedTrueLogs = append0(trueLogs, 32768/8)
+				modifiedTrueLogs = copyPaste(modifiedTrueLogs, 8)
+			} else if currentFileName == "FcEnd.txt" {
+				testLogs = testLogs[0:10]
+				modifiedTrueLogs = trueLogs
+			}
+
+			// print(currentFileName)
 
 			ed := euclideanDistance(modifiedTrueLogs, testLogs)
 			if ed == -1 {
@@ -838,7 +882,7 @@ func logsCompare() {
 
 	sort.Strings(logsVector)
 
-	fmt.Println("Logs : Euclidean Distance")
+	fmt.Println("Euclidean Distance Logs Below")
 	for _, str := range logsVector {
 		fmt.Println(str)
 	}
@@ -862,7 +906,7 @@ func main() {
 
 	// Basic Operation Tests
 	// basicTest()
-	// rotationTimeTest()
+	// rotationTimeTest(context)
 	// addMultTimeTest(context)
 
 	// resnet operation tests

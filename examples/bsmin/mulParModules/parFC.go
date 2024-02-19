@@ -49,7 +49,7 @@ func (this ParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	tempCipher := ckks.NewCiphertext(this.params, ctIn.Degree()+this.preCompWeight[0].Degree(), ctIn.Level())
 	for i := 0; i < 9; i++ {
-		if i == 0 {
+		if ct_rot_index[i] == 0 {
 			relinTemp, err := this.Evaluator.MulRelinNew(ctIn, this.preCompWeight[i])
 			ErrorPrint(err)
 			this.Evaluator.Rescale(relinTemp, relinTemp)
@@ -67,6 +67,8 @@ func (this ParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		this.Evaluator.Rotate(ctOut, result_rot_index[i], tempCipher)
 		this.Evaluator.Add(ctOut, tempCipher, ctOut)
 	}
+
+	this.Evaluator.Add(ctOut, this.preCompBias, ctOut)
 	return ctOut
 }
 

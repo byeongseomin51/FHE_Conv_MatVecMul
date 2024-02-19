@@ -57,6 +57,14 @@ func txtToPlain(encoder *ckks.Encoder, txtPath string, params ckks.Parameters) *
 		return nil
 	}
 
+	//Make longer
+	if len(floats) != 32768 {
+		fmt.Println(txtPath, " : Txt is short! 0 appended")
+		for i := len(floats); i < 32768; i++ {
+			floats = append(floats, 0)
+		}
+	}
+
 	// encode to Plaintext
 	exPlain := ckks.NewPlaintext(params, params.MaxLevel())
 	err = encoder.Encode(floats, exPlain)

@@ -70,6 +70,10 @@ func euclideanDistance(arr1, arr2 []float64) float64 {
 
 	for i := 0; i < len(arr1); i++ {
 		distance += math.Pow(arr1[i]-arr2[i], 2)
+
+		// if math.Abs(arr1[i]-arr2[i]) > 0.001 {
+		// 	fmt.Print(i, " ")
+		// }
 	}
 
 	return math.Sqrt(distance)
@@ -668,6 +672,18 @@ func plainRelu(inputFloat []float64) []float64 {
 			outputFloat = append(outputFloat, 0)
 		} else {
 			outputFloat = append(outputFloat, inputFloat[i])
+		}
+	}
+	return outputFloat
+}
+
+func append0(inputFloat []float64, aimLen int) []float64 {
+	var outputFloat []float64
+	for i := 0; i < aimLen; i++ {
+		if i < len(inputFloat) {
+			outputFloat = append(outputFloat, inputFloat[i])
+		} else {
+			outputFloat = append(outputFloat, 0)
 		}
 	}
 	return outputFloat

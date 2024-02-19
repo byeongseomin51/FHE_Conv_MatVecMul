@@ -841,6 +841,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.KernelNumber = 16
 		result.Stride = 1
 		result.K = 1
+		result.AfterK = 1
 		result.BeforeCopy = 8
 		result.AfterCopy = 2
 		result.q = 2
@@ -863,6 +864,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.KernelNumber = 16
 		result.Stride = 1
 		result.K = 1
+		result.AfterK = 1
 		result.BeforeCopy = 2
 		result.AfterCopy = 2
 
@@ -885,6 +887,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.KernelNumber = 32
 		result.Stride = 2
 		result.K = 1
+		result.AfterK = 2
 		result.BeforeCopy = 2
 		result.AfterCopy = 4
 
@@ -907,6 +910,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.KernelNumber = 32
 		result.Stride = 1
 		result.K = 2
+		result.AfterK = 2
 		result.BeforeCopy = 4
 		result.AfterCopy = 4
 
@@ -929,6 +933,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.KernelNumber = 64
 		result.Stride = 2
 		result.K = 2
+		result.AfterK = 4
 		result.BeforeCopy = 4
 		result.AfterCopy = 8
 
@@ -954,6 +959,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.KernelNumber = 64
 		result.Stride = 1
 		result.K = 4
+		result.AfterK = 4
 		result.BeforeCopy = 8
 		result.AfterCopy = 8
 
@@ -985,6 +991,7 @@ type ConvFeature struct {
 	KernelNumber     int
 	Stride           int
 	K                int
+	AfterK           int
 	BeforeCopy       int
 	AfterCopy        int
 	KernelMap        [][]int

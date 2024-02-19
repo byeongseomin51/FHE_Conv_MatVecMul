@@ -165,7 +165,6 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 				rotnum++
 			}
 		}
-
 	}
 
 	for afterCopy := 1; afterCopy < obj.cf.AfterCopy; afterCopy *= 2 {
