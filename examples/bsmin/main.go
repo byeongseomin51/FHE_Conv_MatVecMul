@@ -412,14 +412,16 @@ func mulParConvTest(layerNum int, cc *customContext) {
 func rotOptConvTest(layerNum int, cc *customContext) {
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
-	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	convIDs := []string{"CONV4"}
-	// maxDepth := []int{2, 4, 5, 4, 5, 4}
-	maxDepth := []int{2}
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	// convIDs := []string{"CONV3s2"}
+	maxDepth := []int{2, 4, 5, 4, 5, 4}
+	// maxDepth := []int{5}
 	// maxDepth := []int{2, 2, 2, 2, 2, 2}
 
+	startDepth := 2
+
 	for index := 0; index < len(convIDs); index++ {
-		for depth := 2; depth < maxDepth[index]+1; depth++ {
+		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
 			convID := convIDs[index]
 			fmt.Printf("convID : %s, Depth : %v\n", convID, depth)
 

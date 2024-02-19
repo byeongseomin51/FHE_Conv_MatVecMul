@@ -99,7 +99,7 @@ func NewBlock(resnetLayerNum int, LayerNum int, BlockNum int, layerStart int, la
 
 		Convbn1: mulParModules.NewrotOptConv(Evaluator, Encoder, Decryptor, params, resnetLayerNum, convID1, ConvDepthPlan[layerStart], BlockNum, 1),
 		Relu1:   mulParModules.NewRelu(Evaluator, Encoder, Decryptor, Encryptor, params),
-		Convbn2: mulParModules.NewrotOptConv(Evaluator, Encoder, Decryptor, params, resnetLayerNum, convID2, ConvDepthPlan[layerStart], BlockNum, 2),
+		Convbn2: mulParModules.NewrotOptConv(Evaluator, Encoder, Decryptor, params, resnetLayerNum, convID2, ConvDepthPlan[layerStart+1], BlockNum, 2),
 		Relu2:   mulParModules.NewRelu(Evaluator, Encoder, Decryptor, Encryptor, params),
 
 		Downsampling:  ds,
@@ -151,6 +151,18 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 		// 	3, 3, 3, 3, 3, 3,
 		// 	3, 3, 3, 3, 3, 3,
 		// 	3, 3, 3, 3, 3, 3,
+		// }
+		// convDepthPlan = []int{
+		// 	2,
+		// 	4, 4, 4, 4, 4, 4,
+		// 	4, 4, 4, 4, 4, 4,
+		// 	4, 4, 4, 4, 4, 4,
+		// }
+		// convDepthPlan = []int{
+		// 	2,
+		// 	4, 4, 4, 4, 4, 4,
+		// 	5, 4, 4, 4, 4, 4,
+		// 	5, 4, 4, 4, 4, 4,
 		// }
 
 	} else if resnetLayerNum == 32 {

@@ -40,7 +40,7 @@ func (this Relu) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 	}
 
-	outputPlain := ckks.NewPlaintext(this.params, this.params.MaxLevel())
+	outputPlain := ckks.NewPlaintext(this.params, 5)
 	this.Encoder.Encode(inputFloat, outputPlain)
 	ctOut, _ = this.Encryptor.EncryptNew(outputPlain)
 
