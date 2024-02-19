@@ -232,7 +232,7 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 						}
 
 					} else {
-						d3Result = kernelResult.CopyNew()
+						*d3Result = *kernelResult
 					}
 				}
 
@@ -270,7 +270,7 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 						ErrorPrint(err)
 					}
 				} else {
-					d2Result = d3Result.CopyNew()
+					*d2Result = *d3Result
 				}
 			}
 
@@ -308,7 +308,7 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 					ErrorPrint(err)
 				}
 			} else {
-				mainCipher = d2Result.CopyNew()
+				*mainCipher = *d2Result
 			}
 		}
 

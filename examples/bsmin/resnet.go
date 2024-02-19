@@ -140,30 +140,30 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 
 	var convDepthPlan []int
 	if resnetLayerNum == 20 {
+		// convDepthPlan = []int{
+		// 	2,
+		// 	2, 2, 2, 2, 2, 2,
+		// 	2, 2, 2, 2, 2, 2,
+		// 	2, 2, 2, 2, 2, 2,
+		// }
+		// convDepthPlan = []int{
+		// 	2,
+		// 	3, 3, 3, 3, 3, 3,
+		// 	3, 3, 3, 3, 3, 3,
+		// 	3, 3, 3, 3, 3, 3,
+		// }
+		// convDepthPlan = []int{
+		// 	2,
+		// 	4, 4, 4, 4, 4, 4,
+		// 	4, 4, 4, 4, 4, 4,
+		// 	4, 4, 4, 4, 4, 4,
+		// }
 		convDepthPlan = []int{
 			2,
-			2, 2, 2, 2, 2, 2,
-			2, 2, 2, 2, 2, 2,
-			2, 2, 2, 2, 2, 2,
+			4, 4, 4, 4, 4, 4,
+			5, 4, 4, 4, 4, 4,
+			5, 4, 4, 4, 4, 4,
 		}
-		// convDepthPlan = []int{
-		// 	2,
-		// 	3, 3, 3, 3, 3, 3,
-		// 	3, 3, 3, 3, 3, 3,
-		// 	3, 3, 3, 3, 3, 3,
-		// }
-		// convDepthPlan = []int{
-		// 	2,
-		// 	4, 4, 4, 4, 4, 4,
-		// 	4, 4, 4, 4, 4, 4,
-		// 	4, 4, 4, 4, 4, 4,
-		// }
-		// convDepthPlan = []int{
-		// 	2,
-		// 	4, 4, 4, 4, 4, 4,
-		// 	5, 4, 4, 4, 4, 4,
-		// 	5, 4, 4, 4, 4, 4,
-		// }
 
 	} else if resnetLayerNum == 32 {
 		convDepthPlan = []int{
