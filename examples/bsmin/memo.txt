@@ -6,3 +6,6 @@ Ckks 포함한 간단한 코드 후에
 go mod init rotOptResnet
 go mod tidy 
 
+
+시간최적화 중 이슈!!
+1. Mul 이 오래걸리길래 분석을 해보니 Rescale 과정이 오래걸리는 거였음!! 

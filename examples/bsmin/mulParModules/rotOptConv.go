@@ -143,8 +143,7 @@ func (this RotOptConv) printCipher(fileName string, ctIn *rlwe.Ciphertext) {
 }
 
 func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
-
-	start := time.Now()
+	fmt.Println(ctIn.Level())
 	mainCipher := ckks.NewCiphertext(this.params, 1, ctIn.Level())
 	tempCtLv1 := ckks.NewCiphertext(this.params, 1, ctIn.Level())
 	tempD1 := ckks.NewCiphertext(this.params, 1, ctIn.Level())
@@ -154,9 +153,10 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	d2Result := ckks.NewCiphertext(this.params, 1, ctIn.Level())
 	d3Result := ckks.NewCiphertext(this.params, 1, ctIn.Level())
-	fmt.Println(time.Now().Sub(start))
+
 	// tempCtLv0 := ckks.NewCiphertext(this.params, 1, ctIn.Level())
 
+	start := time.Now()
 	var err error
 	// Rotate Data
 	var rotInput []*rlwe.Ciphertext
@@ -165,13 +165,13 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		ErrorPrint(err)
 		rotInput = append(rotInput, c)
 	}
+	fmt.Println("Rot data", time.Now().Sub(start))
 
 	// conv
 	kernelNum := len(this.cf.KernelMap) //all size
 	beforeLastFilter := kernelNum / this.convMap[this.lastFilterTreeDepth][1]
 	var splitedCiphertext []*rlwe.Ciphertext
 	for i := 0; i < this.convMap[this.lastFilterTreeDepth][1]; i++ {
-		start = time.Now()
 		//use dac Sum
 		// mainCipher = this.dacSum(this.mode0TreeDepth-1, beforeLastFilter*i, beforeLastFilter*(i+1), rotInput)
 
@@ -179,17 +179,16 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		for d1 := 0; d1 < this.dacToFor[0]; d1++ {
 			for d2 := 0; d2 < this.dacToFor[1]; d2++ {
 				for d3 := 0; d3 < this.dacToFor[2]; d3++ {
-
 					//SISO convolution
 					start := startKernel + d1*this.dacToFor[1]*this.dacToFor[2] + d2*this.dacToFor[2] + d3
 
-					tempCt, err := this.Evaluator.MulRelinNew(rotInput[0], this.preCompKernel[start][0])
+					tempCt, err := this.Evaluator.MulNew(rotInput[0], this.preCompKernel[start][0])
 					ErrorPrint(err)
 					err = this.Evaluator.Rescale(tempCt, kernelResult)
 					ErrorPrint(err)
 
 					for w := 1; w < 9; w++ {
-						tempCt, err := this.Evaluator.MulRelinNew(rotInput[w], this.preCompKernel[start][w])
+						tempCt, err := this.Evaluator.MulNew(rotInput[w], this.preCompKernel[start][w])
 						ErrorPrint(err)
 						err = this.Evaluator.Rescale(tempCt, tempCt)
 						ErrorPrint(err)
@@ -218,12 +217,12 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 						}
 						//filter and combine
 						if d3 == 0 {
-							tempCt, err := this.Evaluator.MulRelinNew(kernelResult, this.preCompFilter[this.dacToForTreeDepth[dBack]][d3])
+							tempCt, err := this.Evaluator.MulNew(kernelResult, this.preCompFilter[this.dacToForTreeDepth[dBack]][d3])
 							ErrorPrint(err)
 							err = this.Evaluator.Rescale(tempCt, d3Result)
 							ErrorPrint(err)
 						} else {
-							tempCt, err := this.Evaluator.MulRelinNew(kernelResult, this.preCompFilter[this.dacToForTreeDepth[dBack]][d3])
+							tempCt, err := this.Evaluator.MulNew(kernelResult, this.preCompFilter[this.dacToForTreeDepth[dBack]][d3])
 							ErrorPrint(err)
 							err = this.Evaluator.Rescale(tempCt, tempCt)
 							ErrorPrint(err)
@@ -234,6 +233,7 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 					} else {
 						*d3Result = *kernelResult
 					}
+
 				}
 
 				//결과 32만큼, -32 만큼 rot 하고 더하기!
@@ -257,12 +257,12 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 					}
 					// filter and combine
 					if d2 == 0 {
-						tempCt, err := this.Evaluator.MulRelinNew(d3Result, this.preCompFilter[this.dacToForTreeDepth[dBack]][d2])
+						tempCt, err := this.Evaluator.MulNew(d3Result, this.preCompFilter[this.dacToForTreeDepth[dBack]][d2])
 						ErrorPrint(err)
 						err = this.Evaluator.Rescale(tempCt, d2Result)
 						ErrorPrint(err)
 					} else {
-						tempCt, err := this.Evaluator.MulRelinNew(d3Result, this.preCompFilter[this.dacToForTreeDepth[dBack]][d2])
+						tempCt, err := this.Evaluator.MulNew(d3Result, this.preCompFilter[this.dacToForTreeDepth[dBack]][d2])
 						ErrorPrint(err)
 						err = this.Evaluator.Rescale(tempCt, tempCt)
 						ErrorPrint(err)
@@ -272,6 +272,7 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 				} else {
 					*d2Result = *d3Result
 				}
+
 			}
 
 			//1024, -1024 더하기!
@@ -295,12 +296,12 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 				}
 				// filter and combine
 				if d1 == 0 {
-					tempCt, err := this.Evaluator.MulRelinNew(d2Result, this.preCompFilter[this.dacToForTreeDepth[dBack]][d1])
+					tempCt, err := this.Evaluator.MulNew(d2Result, this.preCompFilter[this.dacToForTreeDepth[dBack]][d1])
 					ErrorPrint(err)
 					err = this.Evaluator.Rescale(tempCt, mainCipher)
 					ErrorPrint(err)
 				} else {
-					tempCt, err := this.Evaluator.MulRelinNew(d2Result, this.preCompFilter[this.dacToForTreeDepth[dBack]][d1])
+					tempCt, err := this.Evaluator.MulNew(d2Result, this.preCompFilter[this.dacToForTreeDepth[dBack]][d1])
 					ErrorPrint(err)
 					err = this.Evaluator.Rescale(tempCt, tempCt)
 					ErrorPrint(err)
@@ -310,9 +311,10 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 			} else {
 				*mainCipher = *d2Result
 			}
+
 		}
 
-		fmt.Println(time.Now().Sub(start))
+		fmt.Println("DAC part", time.Now().Sub(start))
 		start = time.Now()
 
 		//mode 0
@@ -323,7 +325,7 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 			ErrorPrint(err)
 		}
 
-		fmt.Println(time.Now().Sub(start))
+		fmt.Println("mode zeros", time.Now().Sub(start))
 		start = time.Now()
 
 		// mode2, rotate
@@ -342,31 +344,35 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 			}
 			shift++
 		}
-		fmt.Println(time.Now().Sub(start))
+		fmt.Println("mode2 ", time.Now().Sub(start))
 		start = time.Now()
 		//mode2, split
 		for s := 0; s < this.splitNum; s++ {
 			if i == 0 {
-				tempCt, err := this.Evaluator.MulRelinNew(mainCipher, this.lastFilter[i][s])
+				tempCt, err := this.Evaluator.MulNew(mainCipher, this.lastFilter[i][s])
 				ErrorPrint(err)
 				err = this.Evaluator.Rescale(tempCt, tempCt)
 				ErrorPrint(err)
 				splitedCiphertext = append(splitedCiphertext, tempCt)
+
 			} else {
-				tempCt, err := this.Evaluator.MulRelinNew(mainCipher, this.lastFilter[i][s])
+				tempCt, err := this.Evaluator.MulNew(mainCipher, this.lastFilter[i][s])
 				ErrorPrint(err)
+
 				err = this.Evaluator.Rescale(tempCt, tempCt)
 				ErrorPrint(err)
+
 				err = this.Evaluator.Add(splitedCiphertext[s], tempCt, splitedCiphertext[s])
 				ErrorPrint(err)
+
 			}
 		}
-		fmt.Println(time.Now().Sub(start))
+
+		fmt.Println("mode2 split", time.Now().Sub(start))
 		start = time.Now()
 	}
 
 	// mode 3
-	fmt.Println("mode3")
 	start = time.Now()
 	for i := 1; i < this.convMap[this.lastFilterTreeDepth+1][1]; i++ {
 		err = this.Evaluator.Rotate(splitedCiphertext[i], this.convMap[this.lastFilterTreeDepth+1][i+1], splitedCiphertext[i])
@@ -374,7 +380,7 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		err = this.Evaluator.Add(splitedCiphertext[0], splitedCiphertext[i], splitedCiphertext[0])
 		ErrorPrint(err)
 	}
-	fmt.Println(time.Now().Sub(start))
+	fmt.Println("Mode3 ", time.Now().Sub(start))
 	start = time.Now()
 	//copy paste
 	for treeDepth := this.lastFilterTreeDepth + 2; treeDepth < len(this.convMap); treeDepth++ {
@@ -392,76 +398,10 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	ctOut, err = this.Evaluator.AddNew(splitedCiphertext[0], this.preCompBNadd)
 	ErrorPrint(err)
 
+	fmt.Println("Last ", time.Now().Sub(start))
 	return ctOut
 }
 
-// func (this RotOptConv) dacSum(treeDepth, start, end int, rotInput []*rlwe.Ciphertext) (result *rlwe.Ciphertext) {
-// 	mainCipher := ckks.NewCiphertext(this.params, rotInput[0].Degree(), rotInput[0].Level())
-// 	tempCtLv1 := ckks.NewCiphertext(this.params, rotInput[0].Degree(), rotInput[0].Level())
-// 	tempCtLv0 := ckks.NewCiphertext(this.params, rotInput[0].Degree(), rotInput[0].Level())
-// 	result = ckks.NewCiphertext(this.params, rotInput[0].Degree(), rotInput[0].Level())
-
-// 	var err error
-// 	if treeDepth == 0 {
-// 		tempCt, err := this.Evaluator.MulRelinNew(rotInput[0], this.preCompKernel[start][0])
-// 		ErrorPrint(err)
-// 		err = this.Evaluator.Rescale(tempCt, tempCt)
-// 		result = tempCt
-// 		ErrorPrint(err)
-
-// 		for w := 1; w < 9; w++ {
-// 			tempCt, err := this.Evaluator.MulRelinNew(rotInput[w], this.preCompKernel[start][w])
-// 			ErrorPrint(err)
-// 			err = this.Evaluator.Rescale(tempCt, tempCtLv1)
-// 			ErrorPrint(err)
-// 			err = this.Evaluator.Add(result, tempCtLv1, result)
-// 			ErrorPrint(err)
-// 		}
-// 	} else {
-// 		if this.convMap[treeDepth][0] != 1 { //not mode 0
-// 			fmt.Println("Something wrong in dacSum..")
-// 		} else {
-// 			allLen := end - start
-// 			minLen := allLen / this.convMap[treeDepth][1]
-
-//				for i := 0; i < this.convMap[treeDepth][1]; i++ {
-//					// get pre result
-//					mainCipher = this.dacSum(treeDepth-1, minLen*i, minLen*(i+1), rotInput)
-//					//rotate and add
-//					shift := 0
-//					for j := 1; j < this.convMap[treeDepth][1]; j *= 2 {
-//						if ((i >> shift) & 1) == 0 {
-//							err = this.Evaluator.Rotate(mainCipher, this.convMap[treeDepth][shift+2], tempCtLv1)
-//							ErrorPrint(err)
-//							err = this.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
-//							ErrorPrint(err)
-//						} else {
-//							err = this.Evaluator.Rotate(mainCipher, -this.convMap[treeDepth][shift+2], tempCtLv1)
-//							ErrorPrint(err)
-//							err = this.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
-//							ErrorPrint(err)
-//						}
-//						shift++
-//					}
-//					//filter and combine
-//					if i == 0 {
-//						tempCt, err := this.Evaluator.MulRelinNew(mainCipher, this.preCompFilter[treeDepth][i])
-//						ErrorPrint(err)
-//						err = this.Evaluator.Rescale(tempCt, result)
-//						ErrorPrint(err)
-//					} else {
-//						tempCt, err := this.Evaluator.MulRelinNew(mainCipher, this.preCompFilter[treeDepth][i])
-//						ErrorPrint(err)
-//						err = this.Evaluator.Rescale(tempCt, tempCtLv0)
-//						ErrorPrint(err)
-//						err = this.Evaluator.Add(tempCtLv0, result, result)
-//						ErrorPrint(err)
-//					}
-//				}
-//			}
-//		}
-//		return result
-//	}
 func RotOptConvRegister(convID string, depth int) []int {
 
 	rotateSets := make(map[int]bool)

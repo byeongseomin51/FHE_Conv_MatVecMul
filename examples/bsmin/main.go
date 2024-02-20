@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -514,80 +515,70 @@ func rotationTimeTest(cc *customContext) {
 
 			timeSum += endTime.Sub(startTime).Milliseconds()
 		}
-		fmt.Println("level", level, " ", timeSum/100, "ms")
+		fmt.Println("level", level, " ", int(timeSum)/iter, "ms")
 	}
 
 }
 func addMultTimeTest(cc *customContext) {
-	iter := 2
+	iter := 100
 
-	var err error
-	fmt.Println("Time test for rotation iter", iter)
+	// var err error
+	fmt.Println("Time test for iter", iter)
 
 	// Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
-	inputCt3 := floatToCiphertextLevel(inputFloat, cc.Params.MaxLevel()-2, cc.Params, cc.Encoder, cc.EncryptorSk)
-	inputCt4 := floatToCiphertextLevel(inputFloat, cc.Params.MaxLevel()-2, cc.Params, cc.Encoder, cc.EncryptorSk)
-	for level := cc.Params.MaxLevel() - 2; level >= 2; level-- {
-		var timeSum float64
-		for i := 0; i < iter; i++ {
-			fmt.Println("==============")
-			// Encryption
-			inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
-			inputCt2 := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
 
-			fmt.Println(inputCt.Level(), inputCt.Scale)
-			fmt.Println(inputCt2.Level(), inputCt2.Scale)
-			fmt.Println(inputCt3.Level(), inputCt3.Scale)
-			fmt.Println(inputCt4.Level(), inputCt4.Scale)
+	// inputCt3 := floatToCiphertextLevel(inputFloat, cc.Params.MaxLevel()-2, cc.Params, cc.Encoder, cc.EncryptorSk)
+	inputCt4 := floatToCiphertextLevel(inputFloat, cc.Params.MaxLevel()-2, cc.Params, cc.Encoder, cc.EncryptorSk)
+	for level := cc.Params.MaxLevel() - 2; level > 0; level-- {
+		var timeSum float64
+		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+		inputPlain := ckks.NewPlaintext(cc.Params, level)
+		cc.Encoder.Encode(inputFloat, inputPlain)
+		// inputCt2 := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+		for i := 0; i < iter; i++ {
+			// fmt.Println("==============")
+			// Encryption
+
+			// fmt.Println(ciphertextToFloat(inputCt, cc)[0:10])
+			// fmt.Println(ciphertextToFloat(inputCt2, cc)[0:10])
 
 			// Timer start
 			startTime := time.Now()
 
-			// // test 1 : use Rescale or RescaleTo
-			// // evaluator.Add(inputCt, inputCt2, inputCt)
-			// cc.Evaluator.Mul(inputCt, inputCt2, inputCt3)
-			// // evaluator.RescaleTo(inputCt3, params.DefaultScale(), inputCt3)
-			// cc.Evaluator.Rescale(inputCt3, inputCt3)
+			//Add Case
+			// cc.Evaluator.Add(inputCt, inputCt2, inputCt3)
 
-			//test2 : use MulRelin
-			printCipherSample("1 : ", inputCt, cc, 0, 10)
-			printCipherSample("2 : ", inputCt2, cc, 0, 10)
-			err = cc.Evaluator.MulRelin(inputCt, inputCt2, inputCt3)
-			printCipherSample("3 : ", inputCt3, cc, 0, 10)
+			//Mul Case
+			// inputCt3, err := cc.Evaluator.MulNew(inputCt, inputCt2)
+			// if err != nil {
+			// 	fmt.Println(err)
+			// }
+			// err = cc.Evaluator.Rescale(inputCt3, inputCt4)
+
+			// if err != nil {
+			// 	fmt.Println(err)
+			// }
+
+			//Mul with plaion
+			inputCt3, err := cc.Evaluator.MulNew(inputCt, inputPlain)
+			if err != nil {
+				fmt.Println(err)
+			}
+			err = cc.Evaluator.Rescale(inputCt3, inputCt4)
+
 			if err != nil {
 				fmt.Println(err)
 			}
 
-			fmt.Println(inputCt.Level(), inputCt.Scale)
-			fmt.Println(inputCt2.Level(), inputCt2.Scale)
-			fmt.Println(inputCt3.Level(), inputCt3.Scale)
-			fmt.Println(inputCt4.Level(), inputCt4.Scale)
-
-			err = cc.Evaluator.Rescale(inputCt3, inputCt4)
-
-			printCipherSample("4 : ", inputCt4, cc, 0, 10)
-			// err = cc.Evaluator.SetScale(inputCt3, cc.Params.DefaultScale())
-
-			//Test 3 why...???
-			// cc.Evaluator.Rescale(inputCt3, inputCt4)
-			// inputCt4.Scale = cc.Params.DefaultScale()
-
-			// inputCt3.Scale = cc.Params.DefaultScale()
-			// cc.Evaluator.RescaleTo(inputCt3, cc.Params.DefaultScale(), inputCt4)
-			// inputCt4.Scale = cc.Params.DefaultScale()
-
 			// Timer end
 			endTime := time.Now()
 
-			fmt.Println(inputCt.Level(), inputCt.Scale)
-			fmt.Println(inputCt2.Level(), inputCt2.Scale)
-			fmt.Println(inputCt3.Level(), inputCt3.Scale)
-			fmt.Println(inputCt4.Level(), inputCt4.Scale)
-
-			timeSum += (0.0 + float64(endTime.Sub(startTime).Microseconds()))
+			// fmt.Println(ciphertextToFloat(inputCt4, cc)[0:10])
+			// fmt.Println(inputCt4.Level(), inputCt4.Scale)
+			timeSum += float64(endTime.Sub(startTime).Milliseconds())
 		}
-		fmt.Println("level", level, " ", timeSum/100/1000, "ms")
+		fmt.Println("level", level, " ", timeSum/float64(iter), "ms")
 	}
 }
 
@@ -670,35 +661,35 @@ func rotIndexToGaloisElements(input []int, context *customContext) *ckks.Evaluat
 // 	FloatToTxt("input.txt", ctLenFloat)
 
 // }
-// func getCifar10() []CIFAR10Image {
-// 	cifar10Filename := "cifar-10-batches-bin/data_batch_1.bin"
+func getCifar10() []CIFAR10Image {
+	cifar10Filename := "cifar-10-batches-bin/data_batch_1.bin"
 
-// 	file, err := os.Open(cifar10Filename)
-// 	if err != nil {
-// 		fmt.Println("Error: Cannot open file", cifar10Filename)
-// 		return nil
-// 	}
-// 	defer file.Close()
+	file, err := os.Open(cifar10Filename)
+	if err != nil {
+		fmt.Println("Error: Cannot open file", cifar10Filename)
+		return nil
+	}
+	defer file.Close()
 
-// 	var images []CIFAR10Image
+	var images []CIFAR10Image
 
-// 	for {
-// 		var image CIFAR10Image
-// 		err := binary.Read(file, binary.BigEndian, &image)
-// 		if err != nil {
-// 			break // 파일 끝에 도달하면 종료합니다.
-// 		}
-// 		images = append(images, image)
-// 	}
+	for {
+		var image CIFAR10Image
+		err := binary.Read(file, binary.BigEndian, &image)
+		if err != nil {
+			break // 파일 끝에 도달하면 종료합니다.
+		}
+		images = append(images, image)
+	}
 
-//		// 로딩된 데이터 확인 (예시로 첫 번째 이미지 출력)
-//		if len(images) > 0 {
-//			firstImage := images[0]
-//			fmt.Println("Label:", firstImage.Label)
-//			fmt.Println("Total #:", len(images))
-//		}
-//		return images
-//	}
+	// 로딩된 데이터 확인 (예시로 첫 번째 이미지 출력)
+	if len(images) > 0 {
+		firstImage := images[0]
+		fmt.Println("Label:", firstImage.Label)
+		fmt.Println("Total #:", len(images))
+	}
+	return images
+}
 
 func setCKKSEnv() *customContext {
 	context := new(customContext)
@@ -894,6 +885,29 @@ func logsCompare() {
 		fmt.Println("All logs are same! Success!!")
 	}
 }
+func resnetInferenceForCifar10(layer int, cc *customContext) {
+	// //get Float
+
+	// //Make it to ciphertext
+	// var copyInput []float64
+	// for i := 0; i < 8; i++ {
+	// 	for j := 0; j < 4096; j++ {
+	// 		if j < len(exInput) {
+	// 			copyInput = append(copyInput, exInput[j])
+	// 		} else {
+	// 			copyInput = append(copyInput, 0)
+	// 		}
+	// 	}
+	// }
+
+	// cipherInput := floatToCiphertextLevel(copyInput, 6, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+	// resnet20 := NewResnetCifar10(layer, cc.Evaluator, cc.Encoder, cc.Decryptor, cc.Params, cc.EncryptorSk, cc.Kgen, cc.Sk)
+
+	// //cipherOutput :=
+	// resnet20.Inference(cipherInput)
+
+}
 func main() {
 
 	// images := getCifar10()
@@ -904,6 +918,7 @@ func main() {
 
 	layer := 20
 	resnetInferenceTest(layer, context)
+	// resnetInferenceForCifar10(layer, context)
 	logsCompare()
 
 	// Basic Operation Tests
