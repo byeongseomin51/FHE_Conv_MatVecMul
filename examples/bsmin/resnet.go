@@ -242,6 +242,7 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 	//Add to evaluator
 	newEvaluator := rotIndexToGaloisEl(trueIndices, params, kgen, sk)
 
+	fmt.Println("Resnet Setting done!")
 	return &ResnetCifar10{
 		ResnetLayerNum: resnetLayerNum,
 		ConvDepthPlan:  convDepthPlan,

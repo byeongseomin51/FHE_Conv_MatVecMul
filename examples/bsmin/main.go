@@ -424,7 +424,8 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 	for index := 0; index < len(convIDs); index++ {
 		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
 			convID := convIDs[index]
-			fmt.Printf("convID : %s, Depth : %v\n", convID, depth)
+
+			fmt.Printf("=== convID : %s, Depth : %v\n ===", convID, depth)
 
 			/////Real Convolution/////
 			cf := mulParModules.GetConvFeature(convID)
@@ -462,7 +463,7 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 			//register
 			rot := mulParModules.RotOptConvRegister(convID, depth)
 
-			fmt.Println(len(rot), rot)
+			// fmt.Println(len(rot), rot)
 
 			//rot register
 			newEvaluator := rotIndexToGaloisEl(rot, cc.Params, cc.Kgen, cc.Sk)

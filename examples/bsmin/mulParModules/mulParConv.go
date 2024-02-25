@@ -126,20 +126,24 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	//For each ciphertext
 	for cipherNum := 0; cipherNum < obj.cf.q; cipherNum++ {
 		// Mul kernels (후에 커널 구조 수정)
-		tempCt, err := obj.Evaluator.MulRelinNew(rotInput[0], obj.preCompKernel[cipherNum][0])
+		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernel[cipherNum][0])
 		ErrorPrint(err)
-		err = obj.Evaluator.Rescale(tempCt, tempCt)
-		mainCipher = tempCt
-		ErrorPrint(err)
+		// err = obj.Evaluator.Rescale(tempCt, tempCt)
+		// ErrorPrint(err)
+
+		// mainCipher = tempCt
 
 		for w := 1; w < 9; w++ {
-			tempCt, err := obj.Evaluator.MulRelinNew(rotInput[w], obj.preCompKernel[cipherNum][w])
+			tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.preCompKernel[cipherNum][w])
 			ErrorPrint(err)
-			err = obj.Evaluator.Rescale(tempCt, tempCtLv1)
-			ErrorPrint(err)
-			err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
+			// err = obj.Evaluator.Rescale(tempCt, tempCtLv1)
+			// ErrorPrint(err)
+			err = obj.Evaluator.Add(kernelResult, tempCt, kernelResult)
 			ErrorPrint(err)
 		}
+
+		err = obj.Evaluator.Rescale(kernelResult, mainCipher)
+		ErrorPrint(err)
 
 		//left up
 		for rotLeftUp := 1; rotLeftUp < obj.cf.InputDataChannel; rotLeftUp *= 2 {
@@ -153,8 +157,8 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 		//Mul each filter to get each channel
 		for eachCopy := 0; eachCopy < obj.cf.BeforeCopy; eachCopy++ {
-			tempRelin, _ := obj.Evaluator.MulRelinNew(mainCipher, obj.preCompFilter[cipherNum][eachCopy])
-			obj.Evaluator.Rescale(tempRelin, tempRelin)
+			tempRelin, _ := obj.Evaluator.MulNew(mainCipher, obj.preCompFilter[cipherNum][eachCopy])
+			obj.Evaluator.Rescale(tempRelin, tempRelin) // 이거 없앨수있나..?
 			if cipherNum*eachCopy+eachCopy == 0 {
 				ctOut, err = obj.Evaluator.RotateNew(tempRelin, cipherNum*eachCopy+eachCopy)
 				ErrorPrint(err)
