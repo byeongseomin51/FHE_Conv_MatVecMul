@@ -560,7 +560,7 @@ func addMultTimeTest(cc *customContext) {
 			// 	fmt.Println(err)
 			// }
 
-			//Mul with plaion
+			//Mul with plain
 			inputCt3, err := cc.Evaluator.MulNew(inputCt, inputPlain)
 			if err != nil {
 				fmt.Println(err)
@@ -917,9 +917,9 @@ func main() {
 	// conv1Test(context)
 
 	layer := 20
-	resnetInferenceTest(layer, context)
+	// resnetInferenceTest(layer, context)
 	// resnetInferenceForCifar10(layer, context)
-	logsCompare()
+	// logsCompare()
 
 	// Basic Operation Tests
 	// basicTest()
@@ -933,7 +933,7 @@ func main() {
 	// reluTest(context)
 
 	// Convolution Tests
-	// rotOptConvTest(layer, context)
+	rotOptConvTest(layer, context)
 	// mulParConvTest(layer, context)
 
 }
