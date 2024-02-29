@@ -15,6 +15,15 @@ import (
 	"github.com/tuneinsight/lattigo/v5/utils/sampling"
 )
 
+func int2dTo1d(input [][]int) []int {
+	var result []int
+	for _, i := range input {
+		for _, j := range i {
+			result = append(result, j)
+		}
+	}
+	return result
+}
 func zeroFilter(input float64) float64 {
 	if input > 0.00001 || input < -0.00001 {
 		return input
@@ -687,4 +696,18 @@ func append0(inputFloat []float64, aimLen int) []float64 {
 		}
 	}
 	return outputFloat
+}
+
+func GetFirstLocate(channel int, sameCopy int, k int) int {
+	ctLen := 32768
+	copyNum := 2
+	if k == 4 {
+		copyNum = 8
+	} else if k == 2 {
+		copyNum = 4
+	}
+
+	locate := channel%k + channel%(k*k)/k*32 + channel/(k*k)*1024 + (ctLen/copyNum)*sameCopy
+
+	return locate
 }

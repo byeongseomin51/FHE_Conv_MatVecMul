@@ -70,6 +70,8 @@ type ResnetCifar10 struct {
 	params    ckks.Parameters
 
 	ConvDepthPlan []int
+
+	RotKeyNeeded [][]int
 }
 
 func NewBlock(resnetLayerNum int, LayerNum int, BlockNum int, layerStart int, layerEnd int, planes int, stride int, ConvDepthPlan []int, Evaluator *ckks.Evaluator, Encoder *ckks.Encoder, Decryptor *rlwe.Decryptor, params ckks.Parameters, Encryptor *rlwe.Encryptor) *Block {
@@ -182,7 +184,7 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 	}
 	//Conv1 Rot register
 	rot := mulParModules.RotOptConvRegister("CONV1", 2)
-	rotSet = rotSetCombine(rotSet, rot)
+	rotSet = rotSetCombine(rotSet, int2dTo1d(rot))
 
 	//layer1 Rot Register
 	depthCheck := make(map[int]bool)
@@ -190,46 +192,46 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 		convDepth := convDepthPlan[i]
 		if !depthCheck[convDepth] {
 			rot := mulParModules.RotOptConvRegister("CONV2", convDepth)
-			rotSet = rotSetCombine(rotSet, rot)
+			rotSet = rotSetCombine(rotSet, int2dTo1d(rot))
 			depthCheck[convDepth] = true
 		}
 	}
 	//layer2 Rot Register
 	rot = mulParModules.RotOptConvRegister("CONV3s2", convDepthPlan[(resnetLayerNum-2)/3+1])
-	rotSet = rotSetCombine(rotSet, rot)
+	rotSet = rotSetCombine(rotSet, int2dTo1d(rot))
 	depthCheck = make(map[int]bool)
 	for i := (resnetLayerNum-2)/3 + 1 + 1; i < 2*(resnetLayerNum-2)/3; i++ {
 		convDepth := convDepthPlan[i]
 		if !depthCheck[convDepth] {
 			rot := mulParModules.RotOptConvRegister("CONV3", convDepth)
-			rotSet = rotSetCombine(rotSet, rot)
+			rotSet = rotSetCombine(rotSet, int2dTo1d(rot))
 			depthCheck[convDepth] = true
 		}
 	}
 
 	//layer3 Rot Register
 	rot = mulParModules.RotOptConvRegister("CONV4s2", convDepthPlan[2*(resnetLayerNum-2)/3+1])
-	rotSet = rotSetCombine(rotSet, rot)
+	rotSet = rotSetCombine(rotSet, int2dTo1d(rot))
 	depthCheck = make(map[int]bool)
 	for i := 2*(resnetLayerNum-2)/3 + 1 + 1; i < 3*(resnetLayerNum-2)/3; i++ {
 		convDepth := convDepthPlan[i]
 		if !depthCheck[convDepth] {
 			rot := mulParModules.RotOptConvRegister("CONV4", convDepth)
-			rotSet = rotSetCombine(rotSet, rot)
+			rotSet = rotSetCombine(rotSet, int2dTo1d(rot))
 			depthCheck[convDepth] = true
 		}
 	}
 	// AvgPool rot register
-	rot = mulParModules.AvgPoolRegister()
-	rotSet = rotSetCombine(rotSet, rot)
+	rot1D := mulParModules.AvgPoolRegister()
+	rotSet = rotSetCombine(rotSet, rot1D)
 
 	// FC rot register
-	rot = mulParModules.ParFCRegister()
-	rotSet = rotSetCombine(rotSet, rot)
+	rot1D = mulParModules.ParFCRegister()
+	rotSet = rotSetCombine(rotSet, rot1D)
 
 	// DS rot register
-	rot = mulParModules.RotOptDSRegister()
-	rotSet = rotSetCombine(rotSet, rot)
+	rot1D = mulParModules.RotOptDSRegister()
+	rotSet = rotSetCombine(rotSet, rot1D)
 
 	//change map to slice
 	var trueIndices []int
@@ -355,4 +357,18 @@ func (obj Block) myLogSave(fileName string, ctIn *rlwe.Ciphertext) {
 	obj.Encoder.Decode(plainIn, floatIn)
 
 	floatToTxt(folderName+fileName+".txt", floatIn)
+}
+
+func (obj ResnetCifar10) ClientRotKeyNeeded() [][]int {
+
+	return obj.RotKeyNeeded
+}
+
+func (obj ResnetCifar10) GiveRotKey() {
+
+	obj.InactivePhase()
+}
+
+func (obj ResnetCifar10) InactivePhase() {
+
 }

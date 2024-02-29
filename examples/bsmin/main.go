@@ -337,7 +337,7 @@ func getConvTestNum(convID string) []int {
 func mulParConvTest(layerNum int, cc *customContext) {
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
-	convIDs := []string{"CONV1", "CONV2", "CONV3", "CONV3s2", "CONV4", "CONV4s2"}
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
 	maxDepth := []int{2, 2, 2, 2, 2, 2}
 
 	for index := 0; index < len(convIDs); index++ {
@@ -379,11 +379,15 @@ func mulParConvTest(layerNum int, cc *customContext) {
 			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
 
 			//register
-			rot := mulParModules.MulParConvRegister(convID, depth)
+			rot := mulParModules.MulParConvRegister(convID)
 			// fmt.Println(rot)
 
+			// for i := 0; i < 3; i++ {
+			// 	fmt.Println(len(rot[i]))
+			// }
+
 			//rot register
-			newEvaluator := rotIndexToGaloisEl(rot, cc.Params, cc.Kgen, cc.Sk)
+			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rot), cc.Params, cc.Kgen, cc.Sk)
 
 			//make rotOptConv instance
 			conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
@@ -425,7 +429,7 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
 			convID := convIDs[index]
 
-			fmt.Printf("=== convID : %s, Depth : %v\n ===", convID, depth)
+			fmt.Printf("=== convID : %s, Depth : %v === \n", convID, depth)
 
 			/////Real Convolution/////
 			cf := mulParModules.GetConvFeature(convID)
@@ -461,12 +465,12 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
 
 			//register
-			rot := mulParModules.RotOptConvRegister(convID, depth)
+			rots := mulParModules.RotOptConvRegister(convID, depth)
 
-			// fmt.Println(len(rot), rot)
+			fmt.Println(rots)
 
 			//rot register
-			newEvaluator := rotIndexToGaloisEl(rot, cc.Params, cc.Kgen, cc.Sk)
+			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 			//make rotOptConv instance
 			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
@@ -566,7 +570,17 @@ func addMultTimeTest(cc *customContext) {
 			if err != nil {
 				fmt.Println(err)
 			}
+			fmt.Println(ciphertextToFloat(inputCt, cc)[0:10])
+			values := make([]float64, cc.Params.MaxSlots())
+			cc.Encoder.Decode(inputPlain, values)
+
+			fmt.Println(values[0:10])
+			fmt.Println(ciphertextToFloat(inputCt3, cc)[0:10])
+
+			cc.Evaluator.Rotate(inputCt3, 2, inputCt3)
+
 			err = cc.Evaluator.Rescale(inputCt3, inputCt4)
+			fmt.Println(ciphertextToFloat(inputCt4, cc)[0:10])
 
 			if err != nil {
 				fmt.Println(err)
@@ -602,12 +616,14 @@ func conv1Test(cc *customContext) {
 	cipherInput := floatToCiphertextLevel(copyInput, 6, cc.Params, cc.Encoder, cc.EncryptorSk)
 
 	//register
-	rot := mulParModules.RotOptConvRegister("CONV1", 2)
+	// rots := mulParModules.RotOptConvRegister("CONV1", 2)
+	rots := mulParModules.MulParConvRegister("CONV1")
 
+	fmt.Println(rots)
 	// Make new Evaluator with rot indices
-	newEvaluator := rotIndexToGaloisElements(rot, cc)
+	newEvaluator := rotIndexToGaloisElements(int2dTo1d(rots), cc)
 
-	conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, 20, "CONV1", 2, 0, 1)
+	conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, 20, "CONV1", 2, 0, 1)
 
 	outCt := conv.Foward(cipherInput)
 
@@ -769,6 +785,30 @@ func resnetInferenceTest(layer int, cc *customContext) {
 	resnet20.Inference(cipherInput)
 
 }
+func resnetprevInferenceTest(layer int, cc *customContext) {
+	//get Float
+	exInput := txtToFloat("true_logs/layer0_input_data.txt")
+
+	//Make it to ciphertext
+	var copyInput []float64
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 4096; j++ {
+			if j < len(exInput) {
+				copyInput = append(copyInput, exInput[j])
+			} else {
+				copyInput = append(copyInput, 0)
+			}
+		}
+	}
+
+	cipherInput := floatToCiphertextLevel(copyInput, 6, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+	resnet20 := NewprevResnetCifar10(layer, cc.Evaluator, cc.Encoder, cc.Decryptor, cc.Params, cc.EncryptorSk, cc.Kgen, cc.Sk)
+
+	//cipherOutput :=
+	resnet20.Inference(cipherInput)
+
+}
 func prevResnetInferenceTest(layer int, cc *customContext) {
 	//get Float
 	exInput := txtToFloat("true_logs/layer0_input_data.txt")
@@ -830,7 +870,11 @@ func logsCompare() {
 	}
 
 	for _, trueLogFile := range trueLogFiles {
+
 		currentFileName := trueLogFile.Name()
+		// if currentFileName != "layer0_layerEnd.txt" {
+		// 	continue
+		// }
 		if _, err := os.Stat(testLogsPath + currentFileName); err == nil {
 			layerName := strings.Split(currentFileName, "_")[0]
 			k := 1
@@ -909,18 +953,34 @@ func resnetInferenceForCifar10(layer int, cc *customContext) {
 	// resnet20.Inference(cipherInput)
 
 }
+
+func serverTest() {
+	// clientContext := setCKKSEnv()
+
+	// layer := 20
+
+	// serverResnet20 := NewResnetCifar10(layer, clientContext.Evaluator, clientContext.Encoder, clientContext.Decryptor, clientContext.Params, clientContext.EncryptorSk, clientContext.Kgen, clientContext.Sk)
+
+	// requireInit := serverResnet20.ClientRotKeyNeeded()
+
+	// //Do initRotKeyGen base on require init
+
+	// serverResnet20.GiveRotKey()
+
+	// //serverResnet20.Inference()
+
+}
 func main() {
 
 	// images := getCifar10()
-	// params, encoder, encryptorSk, decryptor, evaluator := setCKKSEnv()
 	context := setCKKSEnv()
+	layer := 20
 
 	// conv1Test(context)
-
-	layer := 20
 	// resnetInferenceTest(layer, context)
+	resnetprevInferenceTest(layer, context)
 	// resnetInferenceForCifar10(layer, context)
-	// logsCompare()
+	logsCompare()
 
 	// Basic Operation Tests
 	// basicTest()
@@ -934,7 +994,37 @@ func main() {
 	// reluTest(context)
 
 	// Convolution Tests
-	rotOptConvTest(layer, context)
+	// rotOptConvTest(layer, context)
 	// mulParConvTest(layer, context)
 
+	//Server - Client Test
+	// serverTest()
+
 }
+
+// kernel 문제...? 아니면 rotation 문제.,?
+// Euclidean Distance Logs Below
+// Failed AvgPoolEnd.txt : 27.321475
+// Failed FcEnd.txt : 40.935761
+// Failed layer2_0_bn1.txt : 337.759744
+// Failed layer2_0_bn2.txt : 283.547389
+// Failed layer2_1_bn1.txt : 132.513293
+// Failed layer2_1_bn2.txt : 99.903144
+// Failed layer2_2_bn1.txt : 144.418705
+// Failed layer2_2_bn2.txt : 105.745933
+// Failed layer2_layerEnd.txt : 189.854234
+// Failed layer3_0_bn1.txt : 214.484531
+// Failed layer3_0_bn2.txt : 289.551886
+// Failed layer3_1_bn1.txt : 148.951862
+// Failed layer3_1_bn2.txt : 175.963691
+// Failed layer3_2_bn1.txt : 150.383789
+// Failed layer3_2_bn2.txt : 466.998735
+// Failed layer3_layerEnd.txt : 350.984730
+// Success! layer0_layerEnd.txt : 0.000014
+// Success! layer1_0_bn1.txt : 0.000031
+// Success! layer1_0_bn2.txt : 0.000024
+// Success! layer1_1_bn1.txt : 0.000039
+// Success! layer1_1_bn2.txt : 0.000030
+// Success! layer1_2_bn1.txt : 0.000054
+// Success! layer1_2_bn2.txt : 0.000036
+// Success! layer1_layerEnd.txt : 0.000051

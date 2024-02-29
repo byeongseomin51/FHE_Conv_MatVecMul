@@ -418,37 +418,48 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	return ctOut
 }
 
-func RotOptConvRegister(convID string, depth int) []int {
+func RotOptConvRegister(convID string, depth int) [][]int {
 
-	rotateSets := make(map[int]bool)
+	rotateSets := make([]map[int]bool, depth+1)
+
+	for d := 0; d < depth+1; d++ {
+		rotateSets[d] = make(map[int]bool)
+	}
 
 	convMap, _, rotIndex3by3Kernel := GetConvMap(convID, depth)
 
 	//combine rot index used in Conv map
-	for d := 1; d < len(convMap); d++ {
+	curDepth := 0
+	for d := len(convMap) - 1; d >= 0; d-- {
 		mode := convMap[d][0]
 		if mode == 0 {
-			rotateSets[convMap[d][1]] = true
+			rotateSets[curDepth][convMap[d][1]] = true
 		} else if mode == 1 || mode == 2 {
 			for i := 2; i < len(convMap[d]); i++ {
-				rotateSets[convMap[d][i]] = true
-				rotateSets[-convMap[d][i]] = true
+				rotateSets[curDepth][convMap[d][i]] = true
+				rotateSets[curDepth][-convMap[d][i]] = true
 			}
+			curDepth++
 		} else if mode == 3 {
 			for i := 2; i < len(convMap[d]); i++ {
-				rotateSets[convMap[d][i]] = true
+				rotateSets[curDepth][convMap[d][i]] = true
 			}
+			curDepth++
 		}
 	}
 
 	//combine rot index used in rotIndex3by3Kernel
 	for i := 0; i < len(rotIndex3by3Kernel); i++ {
-		rotateSets[rotIndex3by3Kernel[i]] = true
+		rotateSets[depth][rotIndex3by3Kernel[i]] = true
 	}
-	var rotateArray []int
-	for element := range rotateSets {
-		if element != 0 {
-			rotateArray = append(rotateArray, element)
+
+	rotateArray := make([][]int, depth+1)
+	for d := 0; d < depth+1; d++ {
+		rotateArray[d] = make([]int, 0)
+		for element := range rotateSets[d] {
+			if element != 0 {
+				rotateArray[d] = append(rotateArray[d], element)
+			}
 		}
 	}
 
@@ -720,17 +731,17 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 		} else if depth == 4 {
 			//4 depth, 38 rotation
 			convMap = [][]int{ //4809ms
-				{10}, //tree length
-				{1, 2, 1},
-				{1, 2, 2},
-				{0, 32 + 32},
-				{0, 1024},
-				{0, 2048},
-				{2, 2, 32},
+				{10},         //tree length
+				{1, 2, 1},    //3
+				{1, 2, 2},    //2
+				{0, 32 + 32}, //2
+				{0, 1024},    //2
+				{0, 2048},    //2
+				{2, 2, 32},   //1 //아래 0
 				{3, 8, 1024*4 - 64, 1024 * 7, 1024*11 - 64, 1024 * 14, 1024*18 - 64, 1024 * 21, 1024*25 - 64},
-				{0, -4096},
-				{0, -8192},
-				{0, -16384},
+				{0, -4096},  //0
+				{0, -8192},  //0
+				{0, -16384}, //0
 			}
 		} else {
 			fmt.Printf("RotOptConv : Invalid parameter! convID(%s), depth(%v)", convID, depth)

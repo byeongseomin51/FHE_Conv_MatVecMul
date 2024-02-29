@@ -65,7 +65,7 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 			//// stride 고려
 			if convFeatureMap.Stride != 1 {
 				for t := 0; t < len(nonSplitFilter); t++ {
-					nonSplitFilter[t] = multVec(nonSplitFilter[t], strideFilter(convFeatureMap.K))
+					nonSplitFilter[t] = multVec(nonSplitFilter[t], StrideFilter(convFeatureMap.K))
 				}
 			}
 
@@ -94,7 +94,7 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 	}
 	return preCompFilter, lastFilter
 }
-func strideFilter(k int) []float64 {
+func StrideFilter(k int) []float64 {
 	var strideFilter []float64
 
 	if k == 1 {
@@ -191,6 +191,58 @@ func splitFilter(filter []float64, splitNum int) [][]float64 {
 	}
 
 	return splitFilter
+}
+
+func LeftUpFilter(k int, isCONV1 bool) []float64 {
+	var filter []float64
+	b := 1
+	if k == 1 && isCONV1 {
+		b = 8
+		for block := 0; block < b; block++ {
+			for i := 0; i < 32768/b; i++ {
+				if i < 1024 {
+					filter = append(filter, 1)
+				} else {
+					filter = append(filter, 0)
+				}
+			}
+		}
+	} else if k == 1 && isCONV1 == false {
+		b = 2
+		for block := 0; block < b; block++ {
+			for i := 0; i < 32768/b; i++ {
+				if i < 1024 {
+					filter = append(filter, 1)
+				} else {
+					filter = append(filter, 0)
+				}
+			}
+		}
+	} else if k == 2 {
+		b = 4
+		for block := 0; block < b; block++ {
+			for i := 0; i < 32768/b; i++ {
+				if i%k == 0 && (i/32)%k == 0 && i < 1024 {
+					filter = append(filter, 1)
+				} else {
+					filter = append(filter, 0)
+				}
+			}
+		}
+	} else if k == 4 {
+		b = 8
+		for block := 0; block < b; block++ {
+			for i := 0; i < 32768/b; i++ {
+				if i%k == 0 && (i/32)%k == 0 && i < 1024 {
+					filter = append(filter, 1)
+				} else {
+					filter = append(filter, 0)
+				}
+			}
+		}
+	}
+
+	return filter
 }
 
 func MakeTxtRotOptConvWeight() {
@@ -316,6 +368,223 @@ func MakeTxtRotOptConvWeight() {
 
 		if err != nil {
 			fmt.Println("오류:", err)
+		}
+	}
+
+}
+
+func MakeTxtMulParConvWeight() {
+	layerNums := []int{20, 32, 44, 56, 110}
+	for _, layerNum := range layerNums {
+		originalFolderPath := "mulParModules/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/"
+		modifiedFolderPath := "mulParModules/precomputed/mulParConv/kernelWeight/" + strconv.Itoa(layerNum) + "/"
+
+		// Make kernel weight
+		err := filepath.Walk(originalFolderPath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			originalFileName := filepath.Base(path)
+			nameSplited := strings.Split(originalFileName, "_")
+
+			modifiedFilePath := modifiedFolderPath
+
+			switch nameSplited[0] {
+			case "layer1":
+				//Make modified file path
+				modifiedFilePath = modifiedFilePath + "layer1/" + nameSplited[1] + "/"
+				for i := 2; i < len(nameSplited); i++ {
+					modifiedFilePath += nameSplited[i]
+					if i != len(nameSplited)-1 {
+						modifiedFilePath += "_"
+					}
+				}
+				//For Conv Param
+				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
+					var x int
+					if nameSplited[2] == "conv1" {
+						x = 1
+					} else {
+						x = 2
+					}
+					makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
+					//For BN param
+				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
+					makeBn(32, 1, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
+				}
+			case "layer2":
+				//Make modified file path
+				modifiedFilePath = modifiedFilePath + "layer2/" + nameSplited[1] + "/"
+				for i := 2; i < len(nameSplited); i++ {
+					modifiedFilePath += nameSplited[i]
+					if i != len(nameSplited)-1 {
+						modifiedFilePath += "_"
+					}
+				}
+				//For Conv Param
+				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
+					var x int
+					if nameSplited[2] == "conv1" {
+						x = 1
+					} else {
+						x = 2
+					}
+					if nameSplited[1] == "0" && nameSplited[2] == "conv1" {
+						makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV3s2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
+					} else {
+						makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV3", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
+					}
+					//For BN param
+				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
+					makeBn(16, 2, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
+				}
+
+			case "layer3":
+				//Make modified file path
+				modifiedFilePath = modifiedFilePath + "layer3/" + nameSplited[1] + "/"
+				for i := 2; i < len(nameSplited); i++ {
+					modifiedFilePath += nameSplited[i]
+					if i != len(nameSplited)-1 {
+						modifiedFilePath += "_"
+					}
+				}
+				//For Conv Param
+				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
+					var x int
+					if nameSplited[2] == "conv1" {
+						x = 1
+					} else {
+						x = 2
+					}
+					if nameSplited[1] == "0" && nameSplited[2] == "conv1" {
+						makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV4s2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
+					} else {
+						makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV4", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
+					}
+					//For BN param
+				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
+					makeBn(8, 4, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
+				}
+			case "linear":
+				// modifiedFilePath = modifiedFilePath + "linear/" + nameSplited[1]
+				// if nameSplited[1] == "bias.txt" {
+				// 	makeBias(originalFolderPath+originalFileName, modifiedFilePath)
+				// } else if nameSplited[1] == "weight.txt" {
+				// 	makeLinearWeight(originalFolderPath+originalFileName, modifiedFilePath)
+				// }
+			default:
+				//Make modified file path
+				modifiedFilePath += "layer0/0/"
+				//For Conv Param
+				if nameSplited[0] == "conv1" {
+					modifiedFilePath += "conv1_weight.txt" //CONV1이라 특이하게 적용.
+					makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV1", originalFolderPath+"bn1")
+
+					//For BN1 param
+				} else if nameSplited[0] == "bn1" && nameSplited[1] == "bias.txt" {
+					makeBn(32, 1, originalFolderPath+nameSplited[0], modifiedFilePath+"bn1")
+				}
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			fmt.Println("오류:", err)
+		}
+	}
+
+}
+func makeModifyMulParKernel(inputFilePath, outputFilePath, convID, inputBNPath string) {
+	originalKernel := kernelTxtToVector(inputFilePath)
+
+	mapFeatures := GetMulParConvFeature(convID)
+
+	thick := [][]int{
+		{0, 1, 0, 1}, {0, 1, 0, 0}, {0, 1, 1, 0}, // 1, 2, 3
+		{0, 0, 0, 1}, {0, 0, 0, 0}, {0, 0, 1, 0}, // 4, 5, 6
+		{1, 0, 0, 1}, {1, 0, 0, 0}, {1, 0, 1, 0}, // 7, 8, 9
+	}
+
+	var flattenFilter [][]float64
+	var rotateNums []int
+
+	for height := -1; height < 2; height++ {
+		for width := -1; width < 2; width++ {
+			rotateNums = append(rotateNums, mapFeatures.InputDataWidth*height+width)
+		}
+	}
+
+	for t := 0; t < 9; t++ {
+		flattenFilter = append(flattenFilter, rotate(flatten(makeZeroBorderOnes(thick[t], int(mapFeatures.InputDataWidth))), rotateNums[t]))
+	}
+
+	runningVar := simpleTxtReader(inputBNPath + "_running_var.txt")
+	weight := simpleTxtReader(inputBNPath + "_weight.txt")
+	var bnMult []float64
+
+	for i := 0; i < len(weight); i++ {
+		bnMult = append(bnMult, weight[i]/math.Sqrt(runningVar[i]+0.00001))
+	}
+
+	var outputKernel [][][]float64
+	for km := 0; km < len(mapFeatures.KernelMap); km++ {
+		outputKernel = append(outputKernel, make([][]float64, 9))
+		for w := 0; w < 9; w++ {
+			outputKernel[km][w] = make([]float64, 0)
+			for _, curKernel := range mapFeatures.KernelMap[km] {
+				for c := 0; c < len(originalKernel[0]); c++ {
+					for _, x := range multVecAndConst(flattenFilter[w], originalKernel[curKernel][c][w/3][w%3]) {
+						outputKernel[km][w] = append(outputKernel[km][w], x*bnMult[curKernel])
+					}
+				}
+				if convID == "CONV1" {
+					for x := 0; x < 1024; x++ {
+						outputKernel[km][w] = append(outputKernel[km][w], 0)
+					}
+				}
+			}
+			// fmt.Println(len(mapFeatures.kernelMap[km]), len(originalKernel[0]), len(flattenFilter[w]), len(outputKernel[km][w]))
+		}
+	}
+
+	for km := range outputKernel {
+		for w := range outputKernel[km] {
+			outputKernel[km][w] = multiplex(outputKernel[km][w], mapFeatures.InputDataWidth, mapFeatures.K)
+		}
+	}
+
+	outputFilePath = outputFilePath[:len(outputFilePath)-4]
+	for km := 0; km < len(outputKernel); km++ {
+		for w := 0; w < len(outputKernel[0]); w++ {
+			tempFilePath := outputFilePath + strconv.Itoa(km) + "_" + strconv.Itoa(w) + ".txt"
+			//open
+			outputFile, err := os.Create(tempFilePath)
+			if err != nil {
+				fmt.Println("Failed to open file:", err)
+				return
+			}
+			defer outputFile.Close()
+			//write
+			writer := bufio.NewWriter(outputFile)
+			for _, value := range outputKernel[km][w] {
+				_, err := fmt.Fprintf(writer, "%.15f\n", value)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "modifyKernel를 파일에 쓰는 도중 오류가 발생했습니다.: %v\n", err)
+					return
+				}
+			}
+			if err := writer.Flush(); err != nil {
+				fmt.Fprintf(os.Stderr, "modifyKernel를 파일에 쓰는 도중 오류가 발생했습니다.: %v\n", err)
+				return
+			}
+
+			fmt.Printf("%s : modifyKernel이 저장되었습니다. 길이: %d\n", tempFilePath, len(outputKernel[0][0]))
 		}
 	}
 
@@ -469,6 +738,7 @@ func makeModifyKernel(inputFilePath, outputFilePath, convID, inputBNPath string)
 	}
 
 }
+
 func packAndCopy(dataWidth, packing int, inputVector []float64) []float64 {
 	var beforePack []float64
 	var afterPack []float64
@@ -970,6 +1240,159 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.KernelMap = [][]int{
 			{0, 8, 16, 24, 32, 40, 48, 56}, {1, 9, 17, 25, 33, 41, 49, 57}, {2, 10, 18, 26, 34, 42, 50, 58}, {3, 11, 19, 27, 35, 43, 51, 59},
 			{4, 12, 20, 28, 36, 44, 52, 60}, {5, 13, 21, 29, 37, 45, 53, 61}, {6, 14, 22, 30, 38, 46, 54, 62}, {7, 15, 23, 31, 39, 47, 55, 63},
+		}
+
+		result.q = 8
+
+	}
+
+	return &result
+}
+func GetMulParConvFeature(convID string) *ConvFeature {
+	var result ConvFeature
+	// rot -> filter -> add
+	if convID == "CONV1" { //32*32*3 -> 32*32*16, kernel=3*3, k=1
+		result.Layer = 0
+		result.LayerStr = "layer0"
+		result.X = 0
+		result.Input = 2
+
+		result.InputDataWidth = 32
+		result.InputDataHeight = 32
+		result.InputDataChannel = 3
+		result.KernelSize = 3
+		result.KernelNumber = 16
+		result.Stride = 1
+		result.K = 1
+		result.AfterK = 1
+		result.BeforeCopy = 8
+		result.AfterCopy = 2
+		result.q = 2
+
+		result.KernelMap = [][]int{
+			{0, 1, 2, 3, 4, 5, 6, 7},
+			{8, 9, 10, 11, 12, 13, 14, 15},
+		}
+
+	} else if convID == "CONV2" { //32*32*16 -> 32*32*16, kernel=3*3, k=1
+		result.Layer = 1
+		result.LayerStr = "layer1"
+		result.X = 1
+		result.Input = 1
+
+		result.InputDataWidth = 32
+		result.InputDataHeight = 32
+		result.InputDataChannel = 16
+		result.KernelSize = 3
+		result.KernelNumber = 16
+		result.Stride = 1
+		result.K = 1
+		result.AfterK = 1
+		result.BeforeCopy = 2
+		result.AfterCopy = 2
+
+		result.q = 8
+
+		result.KernelMap = [][]int{
+			{0, 1}, {2, 3}, {4, 5}, {6, 7}, {8, 9}, {10, 11}, {12, 13}, {14, 15},
+		}
+
+	} else if convID == "CONV3s2" { //32*32*16 -> 16*16*32, kernel=3*3, k=1->2
+		result.Layer = 2
+		result.LayerStr = "layer2"
+		result.X = 0
+		result.Input = 1
+
+		result.InputDataWidth = 32
+		result.InputDataHeight = 32
+		result.InputDataChannel = 16
+		result.KernelSize = 3
+		result.KernelNumber = 32
+		result.Stride = 2
+		result.K = 1
+		result.AfterK = 2
+		result.BeforeCopy = 2
+		result.AfterCopy = 4
+
+		result.KernelMap = [][]int{
+			{0, 1}, {2, 3}, {4, 5}, {6, 7}, {8, 9}, {10, 11}, {12, 13}, {14, 15},
+			{16, 17}, {18, 19}, {20, 21}, {22, 23}, {24, 25}, {26, 27}, {28, 29}, {30, 31},
+		}
+		result.q = 16
+
+	} else if convID == "CONV3" { //16*16*32 -> 16*16*32, kernel=3*3, k=2
+		result.Layer = 2
+		result.LayerStr = "layer2"
+		result.X = 2
+		result.Input = 2
+
+		result.InputDataWidth = 16
+		result.InputDataHeight = 16
+		result.InputDataChannel = 32
+		result.KernelSize = 3
+		result.KernelNumber = 32
+		result.Stride = 1
+		result.K = 2
+		result.AfterK = 2
+		result.BeforeCopy = 4
+		result.AfterCopy = 4
+
+		result.KernelMap = [][]int{
+			{0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15},
+			{16, 17, 18, 19}, {20, 21, 22, 23}, {24, 25, 26, 27}, {28, 29, 30, 31},
+		}
+		result.q = 8
+
+	} else if convID == "CONV4s2" { //16*16*32 -> 8*8*64, kernel=3*3, k=2->4
+		result.Layer = 3
+		result.LayerStr = "layer3"
+		result.X = 0
+		result.Input = 1
+
+		result.InputDataWidth = 16
+		result.InputDataHeight = 16
+		result.InputDataChannel = 32
+		result.KernelSize = 3
+		result.KernelNumber = 64
+		result.Stride = 2
+		result.K = 2
+		result.AfterK = 4
+		result.BeforeCopy = 4
+		result.AfterCopy = 8
+
+		result.KernelMap = [][]int{
+			{0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15},
+			{16, 17, 18, 19}, {20, 21, 22, 23}, {24, 25, 26, 27}, {28, 29, 30, 31},
+			{32, 33, 34, 35}, {36, 37, 38, 39}, {40, 41, 42, 43}, {44, 45, 46, 47},
+			{48, 49, 50, 51}, {52, 53, 54, 55}, {56, 57, 58, 59}, {60, 61, 62, 63},
+		}
+
+		result.q = 16
+
+	} else if convID == "CONV4" { //8*8*64 -> 8*8*64, kernel=3*3, k=4
+		result.Layer = 3
+		result.LayerStr = "layer3"
+		result.X = 2
+		result.Input = 1
+
+		result.InputDataWidth = 8
+		result.InputDataHeight = 8
+		result.InputDataChannel = 64
+		result.KernelSize = 3
+		result.KernelNumber = 64
+		result.Stride = 1
+		result.K = 4
+		result.AfterK = 4
+		result.BeforeCopy = 8
+		result.AfterCopy = 8
+
+		// result.kernelMap = {
+		//     {0,16,32,48,8,24,40,56},{1,17,33,49,9,25,41,57},{2,18,34,50,10,26,42,58},{3,19,35,51,11,27,43,59},
+		//     {4,20,36,52,12,28,44,60},{5,21,37,53,13,29,45,61},{6,22,38,54,14,30,46,62},{7,23,39,55,15,31,47,63}
+		// };
+		result.KernelMap = [][]int{
+			{0, 1, 2, 3, 4, 5, 6, 7}, {8, 9, 10, 11, 12, 13, 14, 15}, {16, 17, 18, 19, 20, 21, 22, 23}, {24, 25, 26, 27, 28, 29, 30, 31},
+			{32, 33, 34, 35, 36, 37, 38, 39}, {40, 41, 42, 43, 44, 45, 46, 47}, {48, 49, 50, 51, 52, 53, 54, 55}, {56, 57, 58, 59, 60, 61, 62, 63},
 		}
 
 		result.q = 8
