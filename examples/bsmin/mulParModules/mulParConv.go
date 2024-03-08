@@ -1,7 +1,6 @@
 package mulParModules
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
@@ -36,7 +35,7 @@ type MulParConv struct {
 }
 
 func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, params ckks.Parameters, resnetLayerNum int, convID string, depth int, blockNum int, operationNum int) *MulParConv {
-	// fmt.Println("Conv : ", resnetLayerNum, convID, depth, blockNum, operationNum)
+	// ("Conv : ", resnetLayerNum, convID, depth, blockNum, operationNum)
 
 	//MulParConv Setting
 	convMap, q, rotIndex3by3Kernel := GetConvMap(convID, depth)
@@ -184,7 +183,7 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 			err = obj.Evaluator.Rotate(mainCipher, obj.depth1Rotate[rotLeftUp], tempCtLv1)
 			ErrorPrint(err)
-			fmt.Println("l", rotLeftUp, obj.depth1Rotate[rotLeftUp])
+
 			err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 			ErrorPrint(err)
 		}
@@ -193,7 +192,7 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		for eachCopy := 0; eachCopy < obj.cf.BeforeCopy; eachCopy++ {
 			tempRelin, _ := obj.Evaluator.MulNew(mainCipher, obj.preCompFilter[eachCopy])
 			obj.Evaluator.Rescale(tempRelin, tempRelin)
-			fmt.Println(cipherNum*obj.cf.BeforeCopy+eachCopy, obj.depth0Rotate[cipherNum*obj.cf.BeforeCopy+eachCopy])
+
 			if cipherNum == 0 && eachCopy == 0 {
 				ctOut, err = obj.Evaluator.RotateNew(tempRelin, obj.depth0Rotate[cipherNum*obj.cf.BeforeCopy+eachCopy])
 				ErrorPrint(err)

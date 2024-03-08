@@ -71,7 +71,11 @@ type ResnetCifar10 struct {
 
 	ConvDepthPlan []int
 
-	RotKeyNeeded [][]int
+	Level0RotKeyNeeded []int
+	Level1RotKeys      []*HierarchyKey
+	//For graph
+	rotKeyMap map[int]int //
+
 }
 
 func NewBlock(resnetLayerNum int, LayerNum int, BlockNum int, layerStart int, layerEnd int, planes int, stride int, ConvDepthPlan []int, Evaluator *ckks.Evaluator, Encoder *ckks.Encoder, Decryptor *rlwe.Decryptor, params ckks.Parameters, Encryptor *rlwe.Encryptor) *Block {
@@ -142,30 +146,30 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 
 	var convDepthPlan []int
 	if resnetLayerNum == 20 {
-		// convDepthPlan = []int{
-		// 	2,
-		// 	2, 2, 2, 2, 2, 2,
-		// 	2, 2, 2, 2, 2, 2,
-		// 	2, 2, 2, 2, 2, 2,
-		// }
-		// convDepthPlan = []int{
-		// 	2,
-		// 	3, 3, 3, 3, 3, 3,
-		// 	3, 3, 3, 3, 3, 3,
-		// 	3, 3, 3, 3, 3, 3,
-		// }
-		// convDepthPlan = []int{
-		// 	2,
-		// 	4, 4, 4, 4, 4, 4,
-		// 	4, 4, 4, 4, 4, 4,
-		// 	4, 4, 4, 4, 4, 4,
-		// }
 		convDepthPlan = []int{
 			2,
-			4, 4, 4, 4, 4, 4,
-			5, 4, 4, 4, 4, 4,
-			5, 4, 4, 4, 4, 4,
+			2, 2, 2, 2, 2, 2,
+			2, 2, 2, 2, 2, 2,
+			2, 2, 2, 2, 2, 2,
 		}
+		// convDepthPlan = []int{
+		// 	2,
+		// 	3, 3, 3, 3, 3, 3,
+		// 	3, 3, 3, 3, 3, 3,
+		// 	3, 3, 3, 3, 3, 3,
+		// }
+		// convDepthPlan = []int{
+		// 	2,
+		// 	4, 4, 4, 4, 4, 4,
+		// 	4, 4, 4, 4, 4, 4,
+		// 	4, 4, 4, 4, 4, 4,
+		// }
+		// convDepthPlan = []int{
+		// 	2,
+		// 	4, 4, 4, 4, 4, 4,
+		// 	5, 4, 4, 4, 4, 4,
+		// 	5, 4, 4, 4, 4, 4,
+		// }
 
 	} else if resnetLayerNum == 32 {
 		convDepthPlan = []int{
@@ -241,10 +245,9 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 		}
 	}
 
-	//Add to evaluator
+	// Add to evaluator
 	newEvaluator := rotIndexToGaloisEl(trueIndices, params, kgen, sk)
 
-	fmt.Println("Resnet Setting done!")
 	return &ResnetCifar10{
 		ResnetLayerNum: resnetLayerNum,
 		ConvDepthPlan:  convDepthPlan,
@@ -260,6 +263,9 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 		Decryptor: Decryptor,
 		params:    params,
 		Encoder:   Encoder,
+
+		Level0RotKeyNeeded: RotKeyOrganize(resnetLayerNum),
+		rotKeyMap:          make(map[int]int),
 	}
 }
 
@@ -334,6 +340,11 @@ func rotIndexToGaloisEl(input []int, params ckks.Parameters, kgen *rlwe.KeyGener
 	}
 	galKeys := kgen.GenGaloisKeysNew(galElements, sk)
 
+	for i := 0; i < len(galKeys); i++ {
+		// fmt.Println(unsafe.Sizeof(*galKeys[0]), unsafe.Sizeof(galKeys[0].GaloisElement), unsafe.Sizeof(galKeys[0].NthRoot), unsafe.Sizeof(galKeys[0].EvaluationKey), unsafe.Sizeof(galKeys[0].GadgetCiphertext), unsafe.Sizeof(galKeys[0].BaseTwoDecomposition), unsafe.Sizeof(galKeys[0].Value))
+		//일단 48 byte 인듯
+		// fmt.Println(galKeys[i].LevelP(), galKeys[i].LevelQ())
+	}
 	newEvaluator := ckks.NewEvaluator(params, rlwe.NewMemEvaluationKeySet(kgen.GenRelinearizationKeyNew(sk), galKeys...))
 
 	return newEvaluator
@@ -359,16 +370,143 @@ func (obj Block) myLogSave(fileName string, ctIn *rlwe.Ciphertext) {
 	floatToTxt(folderName+fileName+".txt", floatIn)
 }
 
-func (obj ResnetCifar10) ClientRotKeyNeeded() [][]int {
+// Use Level0 keys of resnet, this func return what kinds of level1 rot key is needed.
+// And make graph by using Level0RotKeyNeeded and Level1Rot keys
+func (obj ResnetCifar10) Level1RotKeyNeededForInference() []int {
 
-	return obj.RotKeyNeeded
+	//Find which level1 key is needed...
+	var level1 []int
+
+	//Max 16384
+	step := 4
+	stepCount := 7
+
+	//Max 4096
+	// step := 16
+	// stepCount := 3
+
+	//max 1024
+	// step := 32
+	// stepCount := 2
+
+	rotIndex := 1
+	for i := -1; i < stepCount; i++ {
+		level1 = append(level1, rotIndex)
+		level1 = append(level1, -rotIndex)
+		rotIndex *= step
+	}
+
+	//Custom rot index
+	// level1 = []int{1, -1, 2, -2, 16, -16, 32, -32, 1024, -1024, 2048, -2048, 4096, -4096, 8192, -8192}
+	// level1 = []int{1, -1, 16384, -16384, 16, -16, 32, -32, 1024, -1024, 2048, -2048, 4096, -4096, 8192, -8192}
+	// level1 = []int{1, -1, 2, -2, 4, -4, 16, -16, 64, -64, 1024, -1024, 4096, -4096, 16384, -16384}
+
+	level0 := obj.Level0RotKeyNeeded
+	fmt.Println(level0)
+
+	//Make graph with this.
+	// nodes, graph := MakeGraph(level0, level1)
+	nodes, graph, Hgraph := MakeGraph(level0, level1)
+	fmt.Println("Graph created!")
+
+	//Make MST
+	parent := PrimMST(graph)
+	fmt.Println("MST created!")
+
+	// Find minimum path.
+	for targetNode := 1; targetNode < len(nodes); targetNode++ {
+		minPath := findPath(0, targetNode, parent)
+		fmt.Print("Mimum path to ", targetNode, ":", minPath, " ")
+		for start := 1; start < len(minPath); start++ {
+			fmt.Print(nodes[minPath[start-1]].eachInt, Hgraph[minPath[start-1]][minPath[start]], nodes[minPath[start]].eachInt, "->")
+		}
+		fmt.Println()
+
+	}
+	//Print MST sum and average
+	mstSum := 0
+	for i := 1; i < len(graph); i++ {
+		mstSum += graph[i][parent[i]]
+	}
+	fmt.Println("MST sum and average : ", mstSum, float64(mstSum)/float64(len(parent)))
+
+	return level1
+
 }
 
-func (obj ResnetCifar10) GiveRotKey() {
+func RotKeyOrganize(layer int) []int {
+	// register
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	maxDepth := []int{2, 2, 2, 2, 2, 2}
+	maxDepthVal := 2
+	rotOptRot := make([][]int, maxDepthVal+1)
 
-	obj.InactivePhase()
+	// Get RotOptConv all rotation index
+	for i := 0; i < len(convIDs); i++ {
+		rots := mulParModules.RotOptConvRegister(convIDs[i], maxDepth[i])
+		for level := 0; level < maxDepthVal+1; level++ {
+			for _, each := range rots[level] {
+				rotOptRot[level] = append(rotOptRot[level], each)
+			}
+		}
+	}
+	rotOptRot = OrganizeRot(rotOptRot)
+	// fmt.Println(rotOptRot)
+
+	// Print all rot index
+	length := 0
+	for _, i := range rotOptRot {
+		length += len(i)
+		fmt.Println(len(i))
+	}
+	// fmt.Println("Total ", length)
+
+	// Get MulParConv all rotation index
+	mulParRot := make([][]int, 3)
+	for i := 0; i < len(convIDs); i++ {
+		rots := mulParModules.MulParConvRegister(convIDs[i])
+		for level := 0; level < maxDepthVal+1; level++ {
+			for _, each := range rots[level] {
+				mulParRot[level] = append(mulParRot[level], each)
+			}
+		}
+	}
+	mulParRot = OrganizeRot(mulParRot)
+	// fmt.Println(mulParRot)
+
+	length = 0
+	for _, i := range mulParRot {
+		length += len(i)
+		fmt.Println(len(i))
+	}
+	// fmt.Println("Total ", length)
+
+	//Switch
+	// rotOptRot = mulParRot
+
+	//Linearize Rot Keys
+	var result []int
+	for _, i := range rotOptRot {
+		for _, each := range i {
+			result = append(result, each)
+		}
+	}
+	//remove duplicate
+	result = removeDuplicates(result)
+	// fmt.Println("Remove duplicate then ", len(result))
+
+	return result
 }
 
-func (obj ResnetCifar10) InactivePhase() {
+func removeDuplicates(nums []int) []int {
+	encountered := map[int]bool{}
+	result := []int{}
 
+	for v := range nums {
+		if encountered[nums[v]] != true {
+			encountered[nums[v]] = true
+			result = append(result, nums[v])
+		}
+	}
+	return result
 }

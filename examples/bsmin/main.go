@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
@@ -183,7 +184,7 @@ func avgPoolTest(cc *customContext) {
 	rot := mulParModules.AvgPoolRegister()
 
 	//rot register
-	newEvaluator := rotIndexToGaloisElements(rot, cc)
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
 	avgPooling := mulParModules.NewAvgPool(newEvaluator, cc.Encoder, cc.Params)
@@ -219,7 +220,7 @@ func fullyConnectedTest(layerNum int, cc *customContext) {
 	rot := mulParModules.ParFCRegister()
 
 	//rot register
-	newEvaluator := rotIndexToGaloisElements(rot, cc)
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
 	fc := mulParModules.NewparFC(newEvaluator, cc.Encoder, cc.Params, layerNum)
@@ -254,7 +255,7 @@ func downSamplingTest(cc *customContext) {
 	rot := mulParModules.RotOptDSRegister()
 
 	//rot register
-	newEvaluator := rotIndexToGaloisElements(rot, cc)
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
 	ds16 := mulParModules.NewRotOptDS(16, newEvaluator, cc.Encoder, cc.Params)
@@ -339,11 +340,12 @@ func mulParConvTest(layerNum int, cc *customContext) {
 	// mulParModules.MakeTxtRotOptConvFilter()
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
 	maxDepth := []int{2, 2, 2, 2, 2, 2}
+	iter := 1
 
 	for index := 0; index < len(convIDs); index++ {
 		for depth := 2; depth < maxDepth[index]+1; depth++ {
 			convID := convIDs[index]
-			fmt.Printf("convID : %s, Depth : %v\n", convID, depth)
+			fmt.Printf("convID : %s, Depth : %v, iter : %v\n", convID, depth, iter)
 
 			/////Real Convolution/////
 			cf := mulParModules.GetConvFeature(convID)
@@ -380,7 +382,7 @@ func mulParConvTest(layerNum int, cc *customContext) {
 
 			//register
 			rot := mulParModules.MulParConvRegister(convID)
-			// fmt.Println(rot)
+			fmt.Println(rot)
 
 			// for i := 0; i < 3; i++ {
 			// 	fmt.Println(len(rot[i]))
@@ -391,17 +393,21 @@ func mulParConvTest(layerNum int, cc *customContext) {
 
 			//make rotOptConv instance
 			conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+
+			var outputCt *rlwe.Ciphertext
 			//Timer start
 			startTime := time.Now()
 
 			//Conv Foward
-			outputCt := conv.Foward(inputCt)
+			for i := 0; i < iter; i++ {
+				outputCt = conv.Foward(inputCt)
+			}
 
 			//Timer end
 			endTime := time.Now()
 
 			//Print Elapsed Time
-			fmt.Printf("Time : %v \n", endTime.Sub(startTime))
+			fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
 
 			//Decryption
 			outputFloat := ciphertextToFloat(outputCt, cc)
@@ -414,14 +420,53 @@ func mulParConvTest(layerNum int, cc *customContext) {
 		}
 	}
 }
+func MakeGalois(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
+
+	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
+
+	for level := 0; level < len(rotIndexes); level++ {
+		var galElements []uint64
+		for _, rot := range rotIndexes[level] {
+			galElements = append(galElements, cc.Params.GaloisElement(rot))
+		}
+		galKeys := cc.Kgen.GenGaloisKeysNew(galElements, cc.Sk)
+
+		galEls = append(galEls, galKeys)
+		//일단 48 byte 인듯
+		fmt.Println(unsafe.Sizeof(*galKeys[0]), unsafe.Sizeof(galKeys[0].GaloisElement), unsafe.Sizeof(galKeys[0].NthRoot), unsafe.Sizeof(galKeys[0].EvaluationKey), unsafe.Sizeof(galKeys[0].GadgetCiphertext), unsafe.Sizeof(galKeys[0].BaseTwoDecomposition), unsafe.Sizeof(galKeys[0].Value))
+	}
+	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
+	return galEls
+}
+func ClientMakeGaloisWithLevel(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
+
+	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
+
+	for level := 0; level < len(rotIndexes); level++ {
+		var galElements []uint64
+		for _, rot := range rotIndexes[level] {
+			galElements = append(galElements, cc.Params.GaloisElement(rot))
+		}
+		galKeys := cc.Kgen.ClientGenGaloisKeysNew(level, galElements, cc.Sk)
+
+		galEls = append(galEls, galKeys)
+		//일단 48 byte 인듯
+		fmt.Println(unsafe.Sizeof(*galKeys[0]), unsafe.Sizeof(galKeys[0].GaloisElement), unsafe.Sizeof(galKeys[0].NthRoot), unsafe.Sizeof(galKeys[0].EvaluationKey), unsafe.Sizeof(galKeys[0].GadgetCiphertext), unsafe.Sizeof(galKeys[0].BaseTwoDecomposition), unsafe.Sizeof(galKeys[0].Value))
+	}
+	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
+	return galEls
+}
+
 func rotOptConvTest(layerNum int, cc *customContext) {
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	// convIDs := []string{"CONV3s2"}
-	maxDepth := []int{2, 4, 5, 4, 5, 4}
-	// maxDepth := []int{5}
-	// maxDepth := []int{2, 2, 2, 2, 2, 2}
+	// convIDs := []string{"CONV3", "CONV4s2"}
+	// maxDepth := []int{2, 4, 5, 4, 5, 4}
+	// maxDepth := []int{2, 2}
+	maxDepth := []int{2, 2, 2, 2, 2, 2}
+
+	iter := 1
 
 	startDepth := 2
 
@@ -429,7 +474,7 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
 			convID := convIDs[index]
 
-			fmt.Printf("=== convID : %s, Depth : %v === \n", convID, depth)
+			fmt.Printf("=== convID : %s, Depth : %v, iter : %v === \n", convID, depth, iter)
 
 			/////Real Convolution/////
 			cf := mulParModules.GetConvFeature(convID)
@@ -466,7 +511,6 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 
 			//register
 			rots := mulParModules.RotOptConvRegister(convID, depth)
-
 			fmt.Println(rots)
 
 			//rot register
@@ -478,14 +522,17 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 			//Timer start
 			startTime := time.Now()
 
+			var outputCt *rlwe.Ciphertext
 			//Conv Foward
-			outputCt := conv.Foward(inputCt)
+			for i := 0; i < iter; i++ {
+				outputCt = conv.Foward(inputCt)
+			}
 
 			//Timer end
 			endTime := time.Now()
 
 			//Print Elapsed Time
-			fmt.Printf("Time : %v \n", endTime.Sub(startTime))
+			fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
 
 			//Decryption
 			outputFloat := ciphertextToFloat(outputCt, cc)
@@ -621,7 +668,7 @@ func conv1Test(cc *customContext) {
 
 	fmt.Println(rots)
 	// Make new Evaluator with rot indices
-	newEvaluator := rotIndexToGaloisElements(int2dTo1d(rots), cc)
+	newEvaluator := RotIndexToGaloisElements(int2dTo1d(rots), cc)
 
 	conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, 20, "CONV1", 2, 0, 1)
 
@@ -632,7 +679,7 @@ func conv1Test(cc *customContext) {
 	FloatToTxt("afterConv1.txt", outFloat)
 
 }
-func rotIndexToGaloisElements(input []int, context *customContext) *ckks.Evaluator {
+func RotIndexToGaloisElements(input []int, context *customContext) *ckks.Evaluator {
 	var galElements []uint64
 
 	for _, rotIndex := range input {
@@ -954,33 +1001,197 @@ func resnetInferenceForCifar10(layer int, cc *customContext) {
 
 }
 
+func GalToEval(galKeys [][]*rlwe.GaloisKey, context *customContext) *ckks.Evaluator {
+	var linGalKeys []*rlwe.GaloisKey
+
+	for _, galKey := range galKeys {
+		for _, g := range galKey {
+			linGalKeys = append(linGalKeys, g)
+		}
+	}
+	newEvaluator := ckks.NewEvaluator(context.Params, rlwe.NewMemEvaluationKeySet(context.Kgen.GenRelinearizationKeyNew(context.Sk), linGalKeys...))
+	return newEvaluator
+}
+
+// Reorganize to -16384 ~ 16384. And remove repetitive elements.
+func OrganizeRot(rotIndexes [][]int) [][]int {
+	var result [][]int
+	for level := 0; level < len(rotIndexes); level++ {
+		//Reorganize
+		rotateSets := make(map[int]bool)
+		for _, each := range rotIndexes[level] {
+			temp := each
+			if temp > 16384 {
+				temp = temp - 32768
+			} else if temp < -16384 {
+				temp = temp + 32768
+			}
+			rotateSets[temp] = true
+		}
+		//Change map to array
+		var rotateArray []int
+		for element := range rotateSets {
+			if element != 0 {
+				rotateArray = append(rotateArray, element)
+			}
+		}
+		sort.Ints(rotateArray)
+		//append to result
+		result = append(result, rotateArray)
+	}
+	return result
+}
 func serverTest() {
-	// clientContext := setCKKSEnv()
+	//Set CKKS variable
+	clientContext := setCKKSEnv()
 
-	// layer := 20
+	// Set Resnet Layer
+	layer := 20
 
-	// serverResnet20 := NewResnetCifar10(layer, clientContext.Evaluator, clientContext.Encoder, clientContext.Decryptor, clientContext.Params, clientContext.EncryptorSk, clientContext.Kgen, clientContext.Sk)
+	//Make Resnet
+	serverResnet20 := NewResnetCifar10(layer, clientContext.Evaluator, clientContext.Encoder, clientContext.Decryptor, clientContext.Params, clientContext.EncryptorSk, clientContext.Kgen, clientContext.Sk)
+	fmt.Println("Resnet Created!")
 
-	// requireInit := serverResnet20.ClientRotKeyNeeded()
+	//Get what level1 rot key needed
+	requireLevel1Keys := serverResnet20.Level1RotKeyNeededForInference()
+	fmt.Println(requireLevel1Keys)
 
-	// //Do initRotKeyGen base on require init
+	// // Make level1 Rot keys.
+	// var level1Keys []*HierarchyKey
+	// var galElements []uint64
+	// for _, rotIndex := range requireLevel1Keys {
+	// 	galElements = append(galElements, clientContext.Params.GaloisElement(rotIndex))
+	// }
+	// galKeys := clientContext.Kgen.GenGaloisKeysNew(galElements, clientContext.Sk)
 
-	// serverResnet20.GiveRotKey()
+	// for i := 0; i < len(requireLevel1Keys); i++ {
+	// 	level1Keys = append(level1Keys, NewHierarchyKey(requireLevel1Keys[i], 1, galKeys[i]))
+	// }
 
-	// //serverResnet20.Inference()
+	// // Give it to Server resnet
+	// serverResnet20.Level1RotKeys = level1Keys
+
+	// //Make input float data
+	// inputFloat := makeRandomFloat(clientContext.Params.MaxSlots())
+
+	// //Rotate?
+	// inputCt := floatToCiphertextLevel(inputFloat, 10, clientContext.Params, clientContext.Encoder, clientContext.EncryptorSk)
+
+	// serverResnet20.Inference(inputCt)
+
+}
+func hoistSumTest(cc *customContext) {
+	// Initial Time Test
+	// for ctLevel := 0; ctLevel < cc.Params.MaxLevel(); ctLevel++ {
+	// 	fmt.Println("===== For ctLevel : ", ctLevel, " =====")
+	// 	// Make input float data
+	// 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+	// 	ctIn := floatToCiphertextLevel(inputFloat, ctLevel, cc.Params, cc.Encoder, cc.EncryptorSk)
+	// 	rotIndex := []int{1, 2, 3, 4, 5, 6, 7}
+	// 	lenIndex := float64(len(rotIndex))
+	// 	newEv := rotIndexToGaloisEl(rotIndex, cc.Params, cc.Kgen, cc.Sk)
+
+	// 	// Get Hoist ratio of precomp and other and get mathematical solution (only first time)
+	// 	startTime := time.Now()
+	// 	ctOuts, _ := newEv.RotateHoistedNew(ctIn, rotIndex)
+	// 	for c := range ctOuts {
+	// 		newEv.Add(ctIn, c, ctIn)
+	// 	}
+	// 	endTime := time.Now()
+	// 	hoistTime := endTime.Sub(startTime).Milliseconds()
+
+	// 	startTime = time.Now()
+	// 	for i := 0; i < len(rotIndex); i++ {
+	// 		temp, _ := newEv.RotateNew(ctIn, rotIndex[i])
+	// 		newEv.Add(temp, ctIn, ctIn)
+	// 	}
+	// 	endTime = time.Now()
+	// 	originalTime := endTime.Sub(startTime).Milliseconds()
+
+	// 	fmt.Println(hoistTime, originalTime)
+	// 	precomp := float64(originalTime-hoistTime) / float64(lenIndex-1)
+	// 	fmt.Println("precomp : ", precomp)
+	// 	other := (float64(originalTime) - lenIndex*precomp) / lenIndex
+	// 	fmt.Println("other : ", other)
+
+	// 	fmt.Println(precomp + other*lenIndex)
+	// 	fmt.Println(precomp*lenIndex + other*lenIndex)
+
+	// 	// Get optimized solution
+	// 	for length := 4; length < 32; length *= 2 {
+	// 		fmt.Println("time	original hoist	Length")
+	// 		fmt.Print(FindOptHoist(precomp, other, length))
+	// 		fmt.Println("	", length)
+	// 	}
+
+	// 	// Run OptHoistSum
+	// 	for size := 8; size <= 8; size *= 2 {
+	// 		inputCt := floatToCiphertextLevel(inputFloat, 1, cc.Params, cc.Encoder, cc.EncryptorSk)
+	// 		var rotIndexes []int
+	// 		for i := 1; i < size; i++ {
+	// 			rotIndexes = append(rotIndexes, i)
+	// 		}
+
+	// 		OptHoistSum(inputCt, rotIndexes, newEv)
+	// 	}
+	// }
+
+	//Simple Test
+	var inputFloat []float64
+	for i := 0; i < 32768; i++ {
+		j := i % 10
+		inputFloat = append(inputFloat, float64(j))
+	}
+
+	ctIn := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
+	printCipherSample("output", ctIn, cc, 0, 10)
+	rotIndex := []int{1, 2, 4}
+	rotIndexes := []int{1, 2, 3, 4, 5, 6, 7}
+	newEv := rotIndexToGaloisEl(rotIndexes, cc.Params, cc.Kgen, cc.Sk)
+	startTime := time.Now()
+	ctOut := OptHoistSum(ctIn, rotIndex, newEv)
+	endTime := time.Now()
+
+	fmt.Println("Time : ", endTime.Sub(startTime))
+	printCipherSample("output", ctOut, cc, 0, 10)
+}
+func algorTest() {
+	//PrimMST test
+	// graph := [][]int{
+	// 	{0, 1, 3, 2, 2, 3},
+	// 	{1, 0, 2, 2, 1, 2},
+	// 	{3, 2, 0, 2, 1, 2},
+	// 	{2, 2, 2, 0, 1, 2},
+	// 	{2, 1, 1, 1, 0, 1},
+	// 	{3, 2, 2, 2, 1, 0},
+	// }
+	// parent := PrimMST(graph)
+	// for i := 1; i < len(graph); i++ {
+	// 	println(parent[i], " - ", i, "\t", graph[i][parent[i]])
+	// }
+	// fmt.Println(parent)
+
+	//Make Graph test
+
+	eachInts := []int{1, 13, 16, 17, 19}
+	move := []int{1, -1, 2, -2, 4, -4, 8, -8, 16, -16}
+
+	nodes, graph, Hgraph := MakeGraph(eachInts, move)
+	fmt.Println(nodes, graph)
+	fmt.Println(Hgraph)
 
 }
 func main() {
 
 	// images := getCifar10()
 	context := setCKKSEnv()
-	layer := 20
+	// layer := 20
 
 	// conv1Test(context)
 	// resnetInferenceTest(layer, context)
-	resnetprevInferenceTest(layer, context)
+	// resnetprevInferenceTest(layer, context)
 	// resnetInferenceForCifar10(layer, context)
-	logsCompare()
+	// logsCompare()
 
 	// Basic Operation Tests
 	// basicTest()
@@ -998,33 +1209,10 @@ func main() {
 	// mulParConvTest(layer, context)
 
 	//Server - Client Test
+	// rotKeyOrganize(layer, context)
 	// serverTest()
+	// algorTest()
+
+	hoistSumTest(context)
 
 }
-
-// kernel 문제...? 아니면 rotation 문제.,?
-// Euclidean Distance Logs Below
-// Failed AvgPoolEnd.txt : 27.321475
-// Failed FcEnd.txt : 40.935761
-// Failed layer2_0_bn1.txt : 337.759744
-// Failed layer2_0_bn2.txt : 283.547389
-// Failed layer2_1_bn1.txt : 132.513293
-// Failed layer2_1_bn2.txt : 99.903144
-// Failed layer2_2_bn1.txt : 144.418705
-// Failed layer2_2_bn2.txt : 105.745933
-// Failed layer2_layerEnd.txt : 189.854234
-// Failed layer3_0_bn1.txt : 214.484531
-// Failed layer3_0_bn2.txt : 289.551886
-// Failed layer3_1_bn1.txt : 148.951862
-// Failed layer3_1_bn2.txt : 175.963691
-// Failed layer3_2_bn1.txt : 150.383789
-// Failed layer3_2_bn2.txt : 466.998735
-// Failed layer3_layerEnd.txt : 350.984730
-// Success! layer0_layerEnd.txt : 0.000014
-// Success! layer1_0_bn1.txt : 0.000031
-// Success! layer1_0_bn2.txt : 0.000024
-// Success! layer1_1_bn1.txt : 0.000039
-// Success! layer1_1_bn2.txt : 0.000030
-// Success! layer1_2_bn1.txt : 0.000054
-// Success! layer1_2_bn2.txt : 0.000036
-// Success! layer1_layerEnd.txt : 0.000051
