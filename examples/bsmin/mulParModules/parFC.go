@@ -1,7 +1,6 @@
 package mulParModules
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
@@ -17,7 +16,7 @@ type ParFC struct {
 }
 
 func NewparFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, layer int) *ParFC {
-	fmt.Println("FC : ", layer)
+	// fmt.Println("FC : ", layer)
 	path := "mulParModules/precomputed/parFC/" + strconv.Itoa(layer) + "/"
 
 	//declare

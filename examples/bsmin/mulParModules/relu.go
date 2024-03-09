@@ -1,8 +1,6 @@
 package mulParModules
 
 import (
-	"fmt"
-
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
@@ -26,7 +24,7 @@ func NewRelu(Evaluator *ckks.Evaluator, Encoder *ckks.Encoder, Decryptor *rlwe.D
 	}
 }
 func (this Relu) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
-	fmt.Println("Relu: ")
+	// fmt.Println("Relu: ")
 
 	//Temp Relu
 	inputPlain := ckks.NewPlaintext(this.params, this.params.MaxLevel())

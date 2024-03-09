@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"rotOptResnet/mulParModules"
-	"strconv"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
@@ -272,10 +271,10 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 func (obj Block) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	tempCt := obj.Convbn1.Foward(ctIn)
-	obj.myLogSave("layer"+strconv.Itoa(obj.layerNumForLog)+"_"+strconv.Itoa(obj.blockNumForLog)+"_bn1", tempCt)
+	// obj.myLogSave("layer"+strconv.Itoa(obj.layerNumForLog)+"_"+strconv.Itoa(obj.blockNumForLog)+"_bn1", tempCt)
 	tempCt = obj.Relu1.Foward(tempCt)
 	tempCt = obj.Convbn2.Foward(tempCt)
-	obj.myLogSave("layer"+strconv.Itoa(obj.layerNumForLog)+"_"+strconv.Itoa(obj.blockNumForLog)+"_bn2", tempCt)
+	// obj.myLogSave("layer"+strconv.Itoa(obj.layerNumForLog)+"_"+strconv.Itoa(obj.blockNumForLog)+"_bn2", tempCt)
 
 	if obj.Downsampling != nil {
 		dsCt := obj.Downsampling.Foward(ctIn)
@@ -286,7 +285,7 @@ func (obj Block) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	ctOut = obj.Relu2.Foward(tempCt)
 
-	obj.myLogSave(strconv.Itoa(obj.layerNumForLog)+"_"+strconv.Itoa(obj.blockNumForLog)+"blockEnd", ctOut)
+	// obj.myLogSave(strconv.Itoa(obj.layerNumForLog)+"_"+strconv.Itoa(obj.blockNumForLog)+"blockEnd", ctOut)
 
 	return ctOut
 }
@@ -305,24 +304,24 @@ func (obj Layer) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 func (obj ResnetCifar10) Inference(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	tempCt := obj.Convbn1.Foward(ctIn)
-	fmt.Println("after conv1", tempCt.Level(), tempCt.Scale)
+	// fmt.Println("after conv1", tempCt.Level(), tempCt.Scale)
 
 	tempCt = obj.Relu1.Foward(tempCt)
-	obj.myLogSave("layer0_layerEnd", tempCt)
+	// obj.myLogSave("layer0_layerEnd", tempCt)
 
 	tempCt = obj.Layer1.Foward(tempCt)
-	obj.myLogSave("layer1_layerEnd", tempCt)
+	// obj.myLogSave("layer1_layerEnd", tempCt)
 
 	tempCt = obj.Layer2.Foward(tempCt)
-	obj.myLogSave("layer2_layerEnd", tempCt)
+	// obj.myLogSave("layer2_layerEnd", tempCt)
 
 	tempCt = obj.Layer3.Foward(tempCt)
-	obj.myLogSave("layer3_layerEnd", tempCt)
+	// obj.myLogSave("layer3_layerEnd", tempCt)
 
 	tempCt = obj.AvgPool.Foward(tempCt)
-	obj.myLogSave("AvgPoolEnd", tempCt)
+	// obj.myLogSave("AvgPoolEnd", tempCt)
 	ctOut = obj.FullyConnected.Foward(tempCt)
-	obj.myLogSave("FcEnd", ctOut)
+	// obj.myLogSave("FcEnd", ctOut)
 	return ctOut
 }
 
@@ -457,7 +456,7 @@ func RotKeyOrganize(layer int) []int {
 	length := 0
 	for _, i := range rotOptRot {
 		length += len(i)
-		fmt.Println(len(i))
+		// fmt.Println(len(i))
 	}
 	// fmt.Println("Total ", length)
 
@@ -477,7 +476,7 @@ func RotKeyOrganize(layer int) []int {
 	length = 0
 	for _, i := range mulParRot {
 		length += len(i)
-		fmt.Println(len(i))
+		// fmt.Println(len(i))
 	}
 	// fmt.Println("Total ", length)
 

@@ -1,7 +1,6 @@
 package mulParModules
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
@@ -15,7 +14,7 @@ type AvgPool struct {
 }
 
 func NewAvgPool(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters) *AvgPool {
-	fmt.Println("AvgPool")
+	// fmt.Println("AvgPool")
 	//declare
 	preCompPlaintext := []*rlwe.Plaintext{}
 	//make plaintext

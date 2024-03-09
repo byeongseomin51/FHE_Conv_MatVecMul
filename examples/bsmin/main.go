@@ -977,28 +977,79 @@ func logsCompare() {
 		fmt.Println("All logs are same! Success!!")
 	}
 }
-func resnetInferenceForCifar10(layer int, cc *customContext) {
-	// //get Float
+func normalization(data [3072]byte) []float64 {
+	means := []float64{0.4914, 0.4822, 0.4465}
+	stds := []float64{0.2023, 0.1994, 0.2010}
+	var vectorData [3072]float64
+	for i := 0; i < 3072; i++ {
+		rgb := i / 1024
+		vectorData[i] = ((float64(data[i]) / 255.0) - means[rgb]) / stds[rgb]
+	}
+	return vectorData[:]
+}
+func max(floats []float64) int {
+	max := floats[0] // 슬라이스의 첫 번째 요소를 초기 최댓값으로 설정합니다.
+	answer := 0
+	for index, value := range floats {
+		if value > max {
+			max = value // 새로운 최댓값을 찾으면 max에 할당합니다.
+			answer = index
+		}
+	}
+	return answer
+}
+func resnetInferenceForCifar10(layer int, cc *customContext, images []CIFAR10Image) {
+	//Logs
+	// Correct! for index :  937
+	// correct / All :  934 / 938   99.57356076759062 %
+	// Inference Time / Average Time :  33.87346969s / 34.098091481s
 
-	// //Make it to ciphertext
-	// var copyInput []float64
-	// for i := 0; i < 8; i++ {
-	// 	for j := 0; j < 4096; j++ {
-	// 		if j < len(exInput) {
-	// 			copyInput = append(copyInput, exInput[j])
-	// 		} else {
-	// 			copyInput = append(copyInput, 0)
-	// 		}
-	// 	}
-	// }
+	resnet20 := NewResnetCifar10(layer, cc.Evaluator, cc.Encoder, cc.Decryptor, cc.Params, cc.EncryptorSk, cc.Kgen, cc.Sk)
+	fmt.Println("Resnet Created!")
+	correct := 0
 
-	// cipherInput := floatToCiphertextLevel(copyInput, 6, cc.Params, cc.Encoder, cc.EncryptorSk)
+	infAllTime := time.Now().Sub(time.Now())
+	for imageNum := 0; imageNum < len(images); imageNum++ {
 
-	// resnet20 := NewResnetCifar10(layer, cc.Evaluator, cc.Encoder, cc.Decryptor, cc.Params, cc.EncryptorSk, cc.Kgen, cc.Sk)
+		exInput := normalization(images[imageNum].Data)
+		label := int(images[imageNum].Label)
 
-	// //cipherOutput :=
-	// resnet20.Inference(cipherInput)
+		//Make it to ciphertext
+		var copyInput []float64
+		for i := 0; i < 8; i++ {
+			for j := 0; j < 4096; j++ {
+				if j < len(exInput) {
+					copyInput = append(copyInput, exInput[j])
+				} else {
+					copyInput = append(copyInput, 0)
+				}
+			}
+		}
 
+		cipherInput := floatToCiphertextLevel(copyInput, cc.Params.MaxLevel(), cc.Params, cc.Encoder, cc.EncryptorSk)
+		start := time.Now()
+		ctOut := resnet20.Inference(cipherInput)
+		end := time.Now()
+		infTime := end.Sub(start)
+
+		infAllTime += infTime
+
+		ptOut := cc.Decryptor.DecryptNew(ctOut)
+		floatOut := make([]float64, cc.Params.MaxSlots())
+		cc.Encoder.Decode(ptOut, floatOut)
+
+		result := max(floatOut[0:10])
+
+		if result == label {
+			correct++
+			fmt.Println("Correct! for index : ", imageNum)
+		} else {
+			fmt.Println("Wrong... for index : ", imageNum)
+		}
+
+		fmt.Println("correct / All : ", correct, "/", imageNum+1, " ", float64(correct)/float64(imageNum+1)*100.0, "%")
+		fmt.Println("Inference Time / Average Time : ", infTime, "/", infAllTime/(time.Duration(imageNum+1)))
+	}
 }
 
 func GalToEval(galKeys [][]*rlwe.GaloisKey, context *customContext) *ckks.Evaluator {
@@ -1183,14 +1234,14 @@ func algorTest() {
 }
 func main() {
 
-	// images := getCifar10()
+	images := getCifar10()
 	context := setCKKSEnv()
-	// layer := 20
+	layer := 20
 
 	// conv1Test(context)
-	// resnetInferenceTest(layer, context)
+	// resnetInferenceTest(layer, context) //You have to enable myLogsSave codes in resnet.go to use this function.
 	// resnetprevInferenceTest(layer, context)
-	// resnetInferenceForCifar10(layer, context)
+	resnetInferenceForCifar10(layer, context, images)
 	// logsCompare()
 
 	// Basic Operation Tests
@@ -1213,6 +1264,6 @@ func main() {
 	// serverTest()
 	// algorTest()
 
-	hoistSumTest(context)
+	// hoistSumTest(context)
 
 }
