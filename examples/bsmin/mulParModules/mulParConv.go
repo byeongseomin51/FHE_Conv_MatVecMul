@@ -75,7 +75,7 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, par
 	}
 	spFilter := splitFilter(luFilter, cf.BeforeCopy)
 	for i := 0; i < cf.BeforeCopy; i++ {
-		preCompFilter[i] = ckks.NewPlaintext(params, 1)
+		preCompFilter[i] = ckks.NewPlaintext(params, params.MaxLevel())
 		ec.Encode(spFilter[i], preCompFilter[i])
 	}
 
@@ -137,6 +137,10 @@ func (obj MulParConv) printCipher(fileName string, ctIn *rlwe.Ciphertext) {
 }
 
 func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+	// fmt.Println(ctIn.Level())
+	// fmt.Println(obj.preCompKernel[0][0].Level())
+	// fmt.Println(obj.preCompBNadd.Level())
+	// fmt.Println(obj.preCompFilter[0].Level())
 
 	rotnum := 0
 
@@ -145,6 +149,7 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	tempCtLv0 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 
 	var err error
+	// start := time.Now()
 
 	// Rotate Data
 	var rotInput []*rlwe.Ciphertext
@@ -155,10 +160,13 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		rotInput = append(rotInput, c)
 	}
 	rotnum--
-
+	// fmt.Println("rotate data ", time.Now().Sub(start))
+	// start = time.Now()
 	//For each ciphertext
 	for cipherNum := 0; cipherNum < obj.cf.q; cipherNum++ {
-		// Mul kernels (후에 커널 구조 수정)
+		// fmt.Println(cipherNum, "번쨰 ciphertext!")
+		// start = time.Now()
+		// Mul kernels
 		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernel[cipherNum][0])
 		ErrorPrint(err)
 		// err = obj.Evaluator.Rescale(tempCt, tempCt)
@@ -177,6 +185,8 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 		err = obj.Evaluator.Rescale(kernelResult, mainCipher)
 		ErrorPrint(err)
+		// fmt.Println(" Mul kernels  ", time.Now().Sub(start))
+		// start = time.Now()
 
 		//left up
 		for rotLeftUp := 0; rotLeftUp < len(obj.depth1Rotate); rotLeftUp++ {
@@ -187,7 +197,8 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 			err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 			ErrorPrint(err)
 		}
-
+		// fmt.Println(" leftup ", time.Now().Sub(start))
+		// start = time.Now()
 		//Mul each filter to get each channel
 		for eachCopy := 0; eachCopy < obj.cf.BeforeCopy; eachCopy++ {
 			tempRelin, _ := obj.Evaluator.MulNew(mainCipher, obj.preCompFilter[eachCopy])
@@ -203,7 +214,12 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 				ErrorPrint(err)
 			}
 		}
+		// fmt.Println("each kernel  ", time.Now().Sub(start))
+		// start = time.Now()
 	}
+
+	// fmt.Println("all rotate and sum ", time.Now().Sub(start))
+	// start = time.Now()
 
 	for afterCopy := 32768 / obj.cf.AfterCopy; afterCopy < 32768; afterCopy *= 2 {
 		obj.Evaluator.Rotate(ctOut, -afterCopy, tempCtLv0)
@@ -213,6 +229,8 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	//Add bn_add
 	ctOut, err = obj.Evaluator.AddNew(ctOut, obj.preCompBNadd)
 	ErrorPrint(err)
+
+	// fmt.Println("after ", time.Now().Sub(start))
 
 	return ctOut
 }

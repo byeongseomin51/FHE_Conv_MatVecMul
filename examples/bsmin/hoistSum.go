@@ -9,26 +9,26 @@ import (
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
 
-func GetOptSumNum(ctLevel int, sumLen int) (int, int) {
-	if ctLevel == 2 && sumLen == 8 {
+func GetOptSumNum(ctLevel int, c_l int) (int, int) {
+	if ctLevel == 2 && c_l == 8 { //experiment
 		return 8, 1
 	}
 
-	//SumLen =2
-	if sumLen == 2 {
+	//c_l =2
+	if c_l == 2 {
 		return 2, 1
 	}
 	if ctLevel <= 5 {
-		return sumLen, 1
-	} else if ctLevel > 5 && sumLen == 4 {
+		return c_l, 1
+	} else if ctLevel > 5 && c_l == 4 {
 		return 1, 4
-	} else if ctLevel > 5 && sumLen == 8 {
+	} else if ctLevel > 5 && c_l == 8 {
 		return 2, 4
-	} else if ctLevel > 6 && sumLen == 16 {
+	} else if ctLevel > 6 && c_l == 16 {
 		return 1, 16
 	} else {
-		fmt.Println("Error in GetOptSumNum(). Doesn't have OptSumNum data for ctLevel : ", ctLevel, " and sumLen : ", sumLen)
-		return sumLen, 1
+		fmt.Println("Error in GetOptSumNum(). Doesn't have OptSumNum data for ctLevel : ", ctLevel, " and c_l : ", c_l)
+		return c_l, 1
 	}
 }
 
@@ -38,10 +38,10 @@ func OptHoistSum(ctIn *rlwe.Ciphertext, rotIndex []int, evaluator *ckks.Evaluato
 
 	ctOut := ctIn.CopyNew()
 	ctLevel := ctIn.Level()
-	sumLen := math.Pow(2, float64(len(rotIndex)))
+	c_l := math.Pow(2, float64(len(rotIndex)))
 
-	GetOptSumNum(ctLevel, int(sumLen))
-	OSumNum, _ := GetOptSumNum(ctLevel, int(sumLen)) //HSumNum
+	GetOptSumNum(ctLevel, int(c_l))
+	n_c, _ := GetOptSumNum(ctLevel, int(c_l)) //HSumNum
 
 	currentRotIndexLocate := 0
 
@@ -49,8 +49,8 @@ func OptHoistSum(ctIn *rlwe.Ciphertext, rotIndex []int, evaluator *ckks.Evaluato
 	fmt.Println(endTime.Sub(startTime))
 
 	startTime = time.Now()
-	//For OSumNum
-	for o := 1; o < OSumNum; o *= 2 {
+	//For n_c
+	for o := 1; o < n_c; o *= 2 {
 		tempCt, _ := evaluator.RotateNew(ctOut, rotIndex[currentRotIndexLocate])
 		fmt.Println(rotIndex[currentRotIndexLocate])
 		evaluator.Add(ctOut, tempCt, ctOut)
@@ -60,7 +60,13 @@ func OptHoistSum(ctIn *rlwe.Ciphertext, rotIndex []int, evaluator *ckks.Evaluato
 	endTime = time.Now()
 	fmt.Println(endTime.Sub(startTime))
 	startTime = time.Now()
+
+	//여기서 currentRotIndexLocate = log_2{n_c} 임!!!
+	// if math.Pow(2, float64(currentRotIndexLocate)) == float64(n_c) {
+	// 	fmt.Println("??", math.Pow(2, float64(currentRotIndexLocate)), float64(n_c))
+	// }
 	//Make New Rot Index
+	//newRotIndexLen = c_l/n_c
 	newRotIndexLen := int(math.Pow(2, float64(len(rotIndex)-currentRotIndexLocate))) - 1
 	newRotIndex := make([]int, newRotIndexLen)
 	for bit := 1; bit <= newRotIndexLen; bit++ {
@@ -104,55 +110,55 @@ func OptHoistSum(ctIn *rlwe.Ciphertext, rotIndex []int, evaluator *ckks.Evaluato
 	// }
 	// endTime = time.Now()
 	// endTime.Sub(startTime)
-	// // fmt.Println("Original!", endTime.Sub(startTime))
+	// // fmt.Println("conventional!", endTime.Sub(startTime))
 	return ctOut
 }
 
-func FindOptHoist(precomp float64, other float64, length int) (timeResult float64, originalLen int, hoistLen int) {
-	if length == 1 {
+func FindOptHoist(decompose float64, other float64, channelLen int) (timeResult float64, conventionalLen int, hoistLen int) {
+	if channelLen == 1 {
 		return 0, 1, 1
 	}
-	if length == 2 {
-		return precomp + other, 2, 1
+	if channelLen == 2 {
+		return decompose + other, 2, 1
 	}
 
 	// If using previous values
 	minTime := 1000000.0
-	resultO := 1
+	resultC := 1
 	resultH := 1
-	for i := 2; i < length; i *= 2 {
-		time1, o1, h1 := FindOptHoist(precomp, other, i)
-		time2, o2, h2 := FindOptHoist(precomp, other, length/i)
+	for i := 2; i < channelLen; i *= 2 {
+		time1, o1, h1 := FindOptHoist(decompose, other, i)
+		time2, o2, h2 := FindOptHoist(decompose, other, channelLen/i)
 		if minTime > time1+time2 {
 			minTime = time1 + time2
-			resultO = o1 * o2
+			resultC = o1 * o2
 			resultH = h1 * h2
 		}
 	}
 
-	//If using only original
-	onlyO := 0.0
-	for i := 1; i < length; i *= 2 {
-		onlyO += precomp + other
+	//If using only conventional
+	onlyC := 0.0
+	for i := 1; i < channelLen; i *= 2 {
+		onlyC += decompose + other
 	}
-	if minTime > onlyO {
-		minTime = onlyO
-		resultO = length
+	if minTime > onlyC {
+		minTime = onlyC
+		resultC = channelLen
 		resultH = 1
 	}
 
 	//If using only hoist
-	onlyH := precomp
-	for i := 1; i < length; i++ {
+	onlyH := decompose
+	for i := 1; i < channelLen; i++ {
 		onlyH += other
 	}
 	if minTime > onlyH {
 		minTime = onlyH
-		resultO = 1
-		resultH = length
+		resultC = 1
+		resultH = channelLen
 	}
 
-	return minTime, resultO, resultH
+	return minTime, resultC, resultH
 
 }
 

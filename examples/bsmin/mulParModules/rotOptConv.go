@@ -144,6 +144,12 @@ func (this RotOptConv) printCipher(fileName string, ctIn *rlwe.Ciphertext) {
 func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	// start := time.Now()
 	// fmt.Println(ctIn.Level())
+
+	// fmt.Println(this.preCompFilter[0][0].Level())
+	// fmt.Println(this.preCompBNadd.Level())
+	// fmt.Println(this.lastFilter[0][0].Level())
+	// fmt.Println(this.preCompKernel[0][0].Level())
+
 	mainCipher := ckks.NewCiphertext(this.params, 1, ctIn.Level())
 	mainCipherTemp := ckks.NewCiphertext(this.params, 1, ctIn.Level())
 	tempCtLv1 := ckks.NewCiphertext(this.params, 1, ctIn.Level())
@@ -175,6 +181,9 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	beforeLastFilter := kernelNum / this.convMap[this.lastFilterTreeDepth][1]
 	var splitedCiphertext []*rlwe.Ciphertext
 	for i := 0; i < this.convMap[this.lastFilterTreeDepth][1]; i++ {
+
+		// fmt.Println(i, "번쨰 ciphertext!")
+		// start = time.Now()
 		//use dac Sum
 		// mainCipher = this.dacSum(this.mode0TreeDepth-1, beforeLastFilter*i, beforeLastFilter*(i+1), rotInput)
 
@@ -379,9 +388,9 @@ func (this RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 
 		// fmt.Println("mode2 split", time.Now().Sub(start))
-		// start = time.Now()
+		// start = time.Now()9
 	}
-	//start = time.Now()
+	// start = time.Now()
 	//Rescaling
 	for s := 0; s < this.splitNum; s++ {
 		err = this.Evaluator.Rescale(splitedCiphertext[s], splitedCiphertext[s])

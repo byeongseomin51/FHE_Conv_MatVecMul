@@ -450,15 +450,15 @@ func RotKeyOrganize(layer int) []int {
 		}
 	}
 	rotOptRot = OrganizeRot(rotOptRot)
-	// fmt.Println(rotOptRot)
+	fmt.Println(rotOptRot)
 
 	// Print all rot index
 	length := 0
 	for _, i := range rotOptRot {
 		length += len(i)
-		// fmt.Println(len(i))
+		fmt.Println(len(i))
 	}
-	// fmt.Println("Total ", length)
+	fmt.Println("Total ", length)
 
 	// Get MulParConv all rotation index
 	mulParRot := make([][]int, 3)
@@ -471,17 +471,17 @@ func RotKeyOrganize(layer int) []int {
 		}
 	}
 	mulParRot = OrganizeRot(mulParRot)
-	// fmt.Println(mulParRot)
+	fmt.Println(mulParRot)
 
 	length = 0
 	for _, i := range mulParRot {
 		length += len(i)
-		// fmt.Println(len(i))
+		fmt.Println(len(i))
 	}
-	// fmt.Println("Total ", length)
+	fmt.Println("Total ", length)
 
 	//Switch
-	// rotOptRot = mulParRot
+	rotOptRot = mulParRot
 
 	//Linearize Rot Keys
 	var result []int

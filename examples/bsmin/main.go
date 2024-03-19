@@ -335,7 +335,7 @@ func getConvTestNum(convID string) []int {
 	}
 	return []int{}
 }
-func mulParConvTest(layerNum int, cc *customContext) {
+func mulParConvTest(layerNum int, cc *customContext, startCipherLevel int) {
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
@@ -376,13 +376,19 @@ func mulParConvTest(layerNum int, cc *customContext) {
 			}
 
 			////CKKS convolution////
-			plain := ckks.NewPlaintext(cc.Params, depth)
+			d := startCipherLevel
+			if depth > startCipherLevel {
+				d = depth
+			}
+			plain := ckks.NewPlaintext(cc.Params, d)
 			cc.Encoder.Encode(flattenInputData, plain)
 			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
 
 			//register
 			rot := mulParModules.MulParConvRegister(convID)
-			fmt.Println(rot)
+			// for _, r := range rot {
+			// 	fmt.Println(len(r), r)
+			// }
 
 			// for i := 0; i < 3; i++ {
 			// 	fmt.Println(len(rot[i]))
@@ -457,7 +463,7 @@ func ClientMakeGaloisWithLevel(cc *customContext, rotIndexes [][]int) [][]*rlwe.
 	return galEls
 }
 
-func rotOptConvTest(layerNum int, cc *customContext) {
+func rotOptConvTest(layerNum int, cc *customContext, startCipherLevel int) {
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
@@ -505,13 +511,19 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 			}
 
 			////CKKS convolution////
-			plain := ckks.NewPlaintext(cc.Params, depth)
+			d := startCipherLevel
+			if depth > startCipherLevel {
+				d = depth
+			}
+			plain := ckks.NewPlaintext(cc.Params, d)
 			cc.Encoder.Encode(flattenInputData, plain)
 			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
 
 			//register
 			rots := mulParModules.RotOptConvRegister(convID, depth)
-			fmt.Println(rots)
+			// for _, r := range rots {
+			// 	fmt.Println(len(r), r)
+			// }
 
 			//rot register
 			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
@@ -519,10 +531,10 @@ func rotOptConvTest(layerNum int, cc *customContext) {
 			//make rotOptConv instance
 			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
+			var outputCt *rlwe.Ciphertext
 			//Timer start
 			startTime := time.Now()
 
-			var outputCt *rlwe.Ciphertext
 			//Conv Foward
 			for i := 0; i < iter; i++ {
 				outputCt = conv.Foward(inputCt)
@@ -1196,8 +1208,8 @@ func hoistSumTest(cc *customContext) {
 
 	ctIn := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
 	printCipherSample("output", ctIn, cc, 0, 10)
-	rotIndex := []int{1, 2, 4}
-	rotIndexes := []int{1, 2, 3, 4, 5, 6, 7}
+	rotIndex := []int{1, -2, -4}
+	rotIndexes := []int{-6, -5, -4, -3 - 2, -1, 1, 2, 3, 4, 5, 6, 7}
 	newEv := rotIndexToGaloisEl(rotIndexes, cc.Params, cc.Kgen, cc.Sk)
 	startTime := time.Now()
 	ctOut := OptHoistSum(ctIn, rotIndex, newEv)
@@ -1232,22 +1244,138 @@ func algorTest() {
 	fmt.Println(Hgraph)
 
 }
+func tempTimeTest(cc *customContext) {
+	// Make input float data
+	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+	inputCt := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+	inputPlain := ckks.NewPlaintext(cc.Params, cc.Params.MaxLevel())
+	cc.Encoder.Encode(inputFloat, inputPlain)
+
+	inputPlain2 := ckks.NewPlaintext(cc.Params, 2)
+	cc.Encoder.Encode(inputFloat, inputPlain2)
+
+	start := time.Now()
+	cc.Evaluator.MulNew(inputCt, inputPlain)
+	fmt.Println(time.Now().Sub(start))
+
+	start = time.Now()
+	cc.Evaluator.MulNew(inputCt, inputPlain2)
+	fmt.Println(time.Now().Sub(start))
+
+}
+func generalKeyTest(cc *customContext) {
+
+	hdnum := 4.0
+
+	//register
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	maxDepth := []int{2, 2, 2, 2, 2, 2}
+
+	mulPar := make([][]int, 3)
+	rotOpt := make([][]int, 3)
+	for index := 0; index < len(convIDs); index++ {
+		mulParRot := mulParModules.MulParConvRegister(convIDs[index])
+		rotOptRot := mulParModules.RotOptConvRegister(convIDs[index], maxDepth[index])
+
+		for i := 0; i < 3; i++ {
+			for _, each := range mulParRot[i] {
+				mulPar[i] = append(mulPar[i], each)
+			}
+
+			for _, each := range rotOptRot[i] {
+				rotOpt[i] = append(rotOpt[i], each)
+			}
+		}
+	}
+
+	for i := 0; i < 3; i++ {
+		mulPar[i] = removeDuplicates(mulPar[i])
+		rotOpt[i] = removeDuplicates(rotOpt[i])
+	}
+
+	fmt.Println(mulPar)
+	fmt.Println(rotOpt)
+
+	linmulPar := []int{}
+	for _, each := range mulPar {
+		for _, each1 := range each {
+			linmulPar = append(linmulPar, each1)
+		}
+	}
+	linmulPar = removeDuplicates(linmulPar)
+
+	linrotOpt := []int{}
+	for _, each := range rotOpt {
+		for _, each1 := range each {
+			linrotOpt = append(linrotOpt, each1)
+		}
+	}
+	linrotOpt = removeDuplicates(linrotOpt)
+
+	// With max Mult Level , 0 key level
+	multMaxkey0 := NewGeneralKey(1, 0, cc.Params.MaxLevel(), &cc.Params)
+	eachKeySize := multMaxkey0.GetKeySize()
+	fmt.Println("==MulPar with max Mult Level, 0 key level==")
+	fmt.Println(eachKeySize*len(linmulPar)/1048576, "MB")
+	fmt.Println("==RotOpt with max Mult Level, 0 key level==")
+	fmt.Println(eachKeySize*len(linrotOpt)/1048576, "MB")
+
+	// multMaxkey0.PrintKeyInfo()
+	// With max Mult Level , 1 key level
+	lv1keys := []int{1, -1, 4, -4, 16, -16, 256, -256, 1024, -1024, 4096, -4096, 16384, -16384}
+	multMaxkey1 := GenLevelUpKey(multMaxkey0, hdnum) //multMaxkey0.Hdnum
+	eachKeySize = multMaxkey1.GetKeySize()
+
+	// multMaxkey1.PrintKeyInfo()
+
+	// fmt.Println("MulPar with max Mult Level, 1 key level")
+	// fmt.Println(eachKeySize*len(lv1keys)/1048576, "MB")
+	fmt.Println("==RotOpt with max Mult Level, 1 key level==")
+	fmt.Println(eachKeySize*len(lv1keys)/1048576, "MB")
+
+	// With opt Mult Level , 1 key level
+	// fmt.Println("MulPar with opt Mult Level, 1 key level")
+	fmt.Println("==RotOpt with opt Mult Level, 0 key level==")
+	mult2key0 := NewGeneralKey(1, 0, 2, &cc.Params)
+	eachKeySize = mult2key0.GetKeySize()
+	fmt.Println(eachKeySize*len(linrotOpt)/1048576, "MB")
+
+	//Final. Opt Mult Level, 1 key level
+	fmt.Println("==RotOpt with opt Mult Level, 1 key level==")
+	mult2key1 := GenLevelUpKey(mult2key0, hdnum)
+	eachKeySize = mult2key1.GetKeySize()
+	fmt.Println(eachKeySize*len(linrotOpt)/1048576, "MB")
+
+	// lv0key := NewGeneralKey(1, 0, 2, &cc.Params)
+	// fmt.Println(lv0key.GetKeySize(), "byte")
+	// fmt.Println(lv0key)
+
+	// lv1key := GenLevelUpKey(lv0key, lv0key.Hdnum)
+	// fmt.Println(lv1key.GetKeySize(), "byte")
+	// fmt.Println(lv1key)
+
+}
 func main() {
 
-	images := getCifar10()
+	//CKKS settings
 	context := setCKKSEnv()
-	layer := 20
+
+	//Resnet Setting
+	// images := getCifar10()
+	// layer := 20
 
 	// conv1Test(context)
 	// resnetInferenceTest(layer, context) //You have to enable myLogsSave codes in resnet.go to use this function.
 	// resnetprevInferenceTest(layer, context)
-	resnetInferenceForCifar10(layer, context, images)
+	// resnetInferenceForCifar10(layer, context, images)
 	// logsCompare()
 
 	// Basic Operation Tests
 	// basicTest()
 	// rotationTimeTest(context)
 	// addMultTimeTest(context)
+	// tempTimeTest(context)
 
 	// resnet operation tests
 	// avgPoolTest(context)
@@ -1256,14 +1384,18 @@ func main() {
 	// reluTest(context)
 
 	// Convolution Tests
-	// rotOptConvTest(layer, context)
-	// mulParConvTest(layer, context)
+	// rotOptConvTest(layer, context, 14)
+	// mulParConvTest(layer, context, 14)
 
 	//Server - Client Test
 	// rotKeyOrganize(layer, context)
 	// serverTest()
 	// algorTest()
 
+	//Hoist sum test
 	// hoistSumTest(context)
+
+	//General Key test
+	generalKeyTest(context)
 
 }
