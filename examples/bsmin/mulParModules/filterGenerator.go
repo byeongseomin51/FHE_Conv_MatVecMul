@@ -13,6 +13,93 @@ import (
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
 
+func reverse(slice []float64) {
+	for i, j := 0, len(slice)-1; i < j; i, j = i+1, j-1 {
+		slice[i], slice[j] = slice[j], slice[i]
+	}
+}
+func cyclicShiftLeft(slice []float64, shift int) {
+	length := len(slice)
+	if length == 0 {
+		return
+	}
+	shift %= length
+	if shift < 0 {
+		shift += length
+	}
+	reverse(slice[:shift])
+	reverse(slice[shift:])
+	reverse(slice)
+}
+
+func PlainRot(slice []float64, rotNum int) []float64 {
+	if rotNum > 0 {
+		cyclicShiftLeft(slice, rotNum)
+	} else {
+		cyclicShiftLeft(slice, len(slice)+rotNum)
+	}
+	return slice
+}
+
+func PlaintextRot(plaintext *rlwe.Plaintext, rotNum int, ec *ckks.Encoder, params ckks.Parameters) *rlwe.Plaintext {
+	slice := make([]float64, 32768)
+	ec.Decode(plaintext, slice)
+	if rotNum > 0 {
+		cyclicShiftLeft(slice, rotNum)
+	} else {
+		cyclicShiftLeft(slice, len(slice)+rotNum)
+	}
+	resultPlain := ckks.NewPlaintext(params, params.MaxLevel())
+	ec.Encode(slice, resultPlain)
+	return resultPlain
+}
+
+// Filter out
+// parNum = which parallel data
+// k = multiplexed number
+// channel = which channel. channel begin from 0
+func GeneralFilter(channel int, parNum int, k int) []float64 {
+	result := make([]float64, 32768)
+	allPar := 1
+	allChannels := 1
+	if k == 1 { // 32*32*16 = 2^14
+		allPar = 2
+		allChannels = 16
+	} else if k == 2 { //32*32*8 = 2^13
+		allPar = 4
+		allChannels = 32
+	} else if k == 4 { //32*32*4 =2^12
+		allPar = 8
+		allChannels = 64
+	}
+
+	if allChannels <= channel || allPar <= parNum || k > 4 {
+		fmt.Println("Something wrong in GeneralFilter() !")
+		return result
+	}
+
+	// 첫번째 채널에 해당하는 필터 만들음
+	for h := 0; h < 32; h++ {
+		for w := 0; w < 32; w++ {
+			if w%k == 0 && h%k == 0 {
+				result[w+h*32] = 1
+				fmt.Println(w + h*32)
+			}
+		}
+	}
+
+	// 그 채널을 channel 만큼 돌림.
+	channelRot := -(1024*(channel/(k*k)) + 32*(channel%(k*k)/k) + (channel % (k * k) % k))
+	result = PlainRot(result, channelRot)
+	fmt.Println("c : ", channelRot)
+
+	// 그걸 또 parNum 만큼 돌림.
+	parRot := -(32768 / allPar * parNum)
+	result = PlainRot(result, parRot)
+	fmt.Println("p : ", parRot)
+	return result
+}
+
 func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, params ckks.Parameters) (preCompFilter [][]*rlwe.Plaintext, lastFilter [][]*rlwe.Plaintext) {
 
 	//get ConvMap
@@ -77,7 +164,7 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 				}
 			}
 			for i := 0; i < len(nonSplitFilter); i++ {
-				filterWithSplit = append(filterWithSplit, splitFilter(nonSplitFilter[i], splitNum))
+				filterWithSplit = append(filterWithSplit, crossFilter(nonSplitFilter[i], splitNum))
 			}
 
 			//Save filter
@@ -172,8 +259,8 @@ func mode0Filter(rotIndex int) []float64 {
 
 }
 
-func splitFilter(filter []float64, splitNum int) [][]float64 {
-	var splitFilter [][]float64
+func crossFilter(filter []float64, splitNum int) [][]float64 {
+	var crossFilter [][]float64
 	length := 32768
 	for s := 0; s < splitNum; s++ {
 		var splitTemp []float64
@@ -187,10 +274,10 @@ func splitFilter(filter []float64, splitNum int) [][]float64 {
 			}
 		}
 
-		splitFilter = append(splitFilter, multVec(splitTemp, filter))
+		crossFilter = append(crossFilter, multVec(splitTemp, filter))
 	}
 
-	return splitFilter
+	return crossFilter
 }
 
 func LeftUpFilter(k int, isCONV1 bool) []float64 {
@@ -1076,348 +1163,4 @@ func print4DArray(arr [][][][]float64) {
 		}
 		fmt.Println()
 	}
-}
-
-func ConvertToConvID(planes int, stride int) string {
-	if planes == 3 && stride == 1 {
-		return "CONV1"
-	} else if planes == 16 && stride == 1 {
-		return "CONV2"
-	} else if planes == 16 && stride == 2 {
-		return "CONV3s2"
-	} else if planes == 32 && stride == 1 {
-		return "CONV3"
-	} else if planes == 32 && stride == 2 {
-		return "CONV4s2"
-	} else if planes == 64 && stride == 1 {
-		return "CONV4"
-	}
-	return ""
-}
-
-func GetConvFeature(convID string) *ConvFeature {
-	var result ConvFeature
-	// rot -> filter -> add
-	if convID == "CONV1" { //32*32*3 -> 32*32*16, kernel=3*3, k=1
-		result.Layer = 0
-		result.LayerStr = "layer0"
-		result.X = 0
-		result.Input = 2
-
-		result.InputDataWidth = 32
-		result.InputDataHeight = 32
-		result.InputDataChannel = 3
-		result.KernelSize = 3
-		result.KernelNumber = 16
-		result.Stride = 1
-		result.K = 1
-		result.AfterK = 1
-		result.BeforeCopy = 8
-		result.AfterCopy = 2
-		result.q = 2
-
-		result.KernelMap = [][]int{
-			{0, 4, 8, 12, 2, 6, 10, 14},
-			{1, 5, 9, 13, 3, 7, 11, 15},
-		}
-
-	} else if convID == "CONV2" { //32*32*16 -> 32*32*16, kernel=3*3, k=1
-		result.Layer = 1
-		result.LayerStr = "layer1"
-		result.X = 1
-		result.Input = 1
-
-		result.InputDataWidth = 32
-		result.InputDataHeight = 32
-		result.InputDataChannel = 16
-		result.KernelSize = 3
-		result.KernelNumber = 16
-		result.Stride = 1
-		result.K = 1
-		result.AfterK = 1
-		result.BeforeCopy = 2
-		result.AfterCopy = 2
-
-		result.q = 8
-
-		result.KernelMap = [][]int{
-			{0, 8}, {1, 9}, {2, 10}, {3, 11}, {4, 12}, {5, 13}, {6, 14}, {7, 15},
-		}
-
-	} else if convID == "CONV3s2" { //32*32*16 -> 16*16*32, kernel=3*3, k=1->2
-		result.Layer = 2
-		result.LayerStr = "layer2"
-		result.X = 0
-		result.Input = 1
-
-		result.InputDataWidth = 32
-		result.InputDataHeight = 32
-		result.InputDataChannel = 16
-		result.KernelSize = 3
-		result.KernelNumber = 32
-		result.Stride = 2
-		result.K = 1
-		result.AfterK = 2
-		result.BeforeCopy = 2
-		result.AfterCopy = 4
-
-		result.KernelMap = [][]int{
-			{0, 2}, {4, 6}, {8, 10}, {12, 14}, {16, 18}, {20, 22}, {24, 26}, {28, 30},
-			{1, 3}, {5, 7}, {9, 11}, {13, 15}, {17, 19}, {21, 23}, {25, 27}, {29, 31},
-		}
-		result.q = 16
-
-	} else if convID == "CONV3" { //16*16*32 -> 16*16*32, kernel=3*3, k=2
-		result.Layer = 2
-		result.LayerStr = "layer2"
-		result.X = 2
-		result.Input = 2
-
-		result.InputDataWidth = 16
-		result.InputDataHeight = 16
-		result.InputDataChannel = 32
-		result.KernelSize = 3
-		result.KernelNumber = 32
-		result.Stride = 1
-		result.K = 2
-		result.AfterK = 2
-		result.BeforeCopy = 4
-		result.AfterCopy = 4
-
-		result.KernelMap = [][]int{
-			{0, 8, 16, 24}, {1, 9, 17, 25}, {2, 10, 18, 26}, {3, 11, 19, 27},
-			{4, 12, 20, 28}, {5, 13, 21, 29}, {6, 14, 22, 30}, {7, 15, 23, 31},
-		}
-		result.q = 8
-
-	} else if convID == "CONV4s2" { //16*16*32 -> 8*8*64, kernel=3*3, k=2->4
-		result.Layer = 3
-		result.LayerStr = "layer3"
-		result.X = 0
-		result.Input = 1
-
-		result.InputDataWidth = 16
-		result.InputDataHeight = 16
-		result.InputDataChannel = 32
-		result.KernelSize = 3
-		result.KernelNumber = 64
-		result.Stride = 2
-		result.K = 2
-		result.AfterK = 4
-		result.BeforeCopy = 4
-		result.AfterCopy = 8
-
-		result.KernelMap = [][]int{
-			{0, 2, 8, 10}, {1, 3, 9, 11}, {4, 6, 12, 14}, {5, 7, 13, 15},
-			{16, 18, 24, 26}, {17, 19, 25, 27}, {20, 22, 28, 30}, {21, 23, 29, 31},
-			{32, 34, 40, 42}, {33, 35, 41, 43}, {36, 38, 44, 46}, {37, 39, 45, 47},
-			{48, 50, 56, 58}, {49, 51, 57, 59}, {52, 54, 60, 62}, {53, 55, 61, 63},
-		}
-
-		result.q = 16
-
-	} else if convID == "CONV4" { //8*8*64 -> 8*8*64, kernel=3*3, k=4
-		result.Layer = 3
-		result.LayerStr = "layer3"
-		result.X = 2
-		result.Input = 1
-
-		result.InputDataWidth = 8
-		result.InputDataHeight = 8
-		result.InputDataChannel = 64
-		result.KernelSize = 3
-		result.KernelNumber = 64
-		result.Stride = 1
-		result.K = 4
-		result.AfterK = 4
-		result.BeforeCopy = 8
-		result.AfterCopy = 8
-
-		// result.kernelMap = {
-		//     {0,16,32,48,8,24,40,56},{1,17,33,49,9,25,41,57},{2,18,34,50,10,26,42,58},{3,19,35,51,11,27,43,59},
-		//     {4,20,36,52,12,28,44,60},{5,21,37,53,13,29,45,61},{6,22,38,54,14,30,46,62},{7,23,39,55,15,31,47,63}
-		// };
-		result.KernelMap = [][]int{
-			{0, 8, 16, 24, 32, 40, 48, 56}, {1, 9, 17, 25, 33, 41, 49, 57}, {2, 10, 18, 26, 34, 42, 50, 58}, {3, 11, 19, 27, 35, 43, 51, 59},
-			{4, 12, 20, 28, 36, 44, 52, 60}, {5, 13, 21, 29, 37, 45, 53, 61}, {6, 14, 22, 30, 38, 46, 54, 62}, {7, 15, 23, 31, 39, 47, 55, 63},
-		}
-
-		result.q = 8
-
-	}
-
-	return &result
-}
-func GetMulParConvFeature(convID string) *ConvFeature {
-	var result ConvFeature
-	// rot -> filter -> add
-	if convID == "CONV1" { //32*32*3 -> 32*32*16, kernel=3*3, k=1
-		result.Layer = 0
-		result.LayerStr = "layer0"
-		result.X = 0
-		result.Input = 2
-
-		result.InputDataWidth = 32
-		result.InputDataHeight = 32
-		result.InputDataChannel = 3
-		result.KernelSize = 3
-		result.KernelNumber = 16
-		result.Stride = 1
-		result.K = 1
-		result.AfterK = 1
-		result.BeforeCopy = 8
-		result.AfterCopy = 2
-		result.q = 2
-
-		result.KernelMap = [][]int{
-			{0, 1, 2, 3, 4, 5, 6, 7},
-			{8, 9, 10, 11, 12, 13, 14, 15},
-		}
-
-	} else if convID == "CONV2" { //32*32*16 -> 32*32*16, kernel=3*3, k=1
-		result.Layer = 1
-		result.LayerStr = "layer1"
-		result.X = 1
-		result.Input = 1
-
-		result.InputDataWidth = 32
-		result.InputDataHeight = 32
-		result.InputDataChannel = 16
-		result.KernelSize = 3
-		result.KernelNumber = 16
-		result.Stride = 1
-		result.K = 1
-		result.AfterK = 1
-		result.BeforeCopy = 2
-		result.AfterCopy = 2
-
-		result.q = 8
-
-		result.KernelMap = [][]int{
-			{0, 1}, {2, 3}, {4, 5}, {6, 7}, {8, 9}, {10, 11}, {12, 13}, {14, 15},
-		}
-
-	} else if convID == "CONV3s2" { //32*32*16 -> 16*16*32, kernel=3*3, k=1->2
-		result.Layer = 2
-		result.LayerStr = "layer2"
-		result.X = 0
-		result.Input = 1
-
-		result.InputDataWidth = 32
-		result.InputDataHeight = 32
-		result.InputDataChannel = 16
-		result.KernelSize = 3
-		result.KernelNumber = 32
-		result.Stride = 2
-		result.K = 1
-		result.AfterK = 2
-		result.BeforeCopy = 2
-		result.AfterCopy = 4
-
-		result.KernelMap = [][]int{
-			{0, 1}, {2, 3}, {4, 5}, {6, 7}, {8, 9}, {10, 11}, {12, 13}, {14, 15},
-			{16, 17}, {18, 19}, {20, 21}, {22, 23}, {24, 25}, {26, 27}, {28, 29}, {30, 31},
-		}
-		result.q = 16
-
-	} else if convID == "CONV3" { //16*16*32 -> 16*16*32, kernel=3*3, k=2
-		result.Layer = 2
-		result.LayerStr = "layer2"
-		result.X = 2
-		result.Input = 2
-
-		result.InputDataWidth = 16
-		result.InputDataHeight = 16
-		result.InputDataChannel = 32
-		result.KernelSize = 3
-		result.KernelNumber = 32
-		result.Stride = 1
-		result.K = 2
-		result.AfterK = 2
-		result.BeforeCopy = 4
-		result.AfterCopy = 4
-
-		result.KernelMap = [][]int{
-			{0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15},
-			{16, 17, 18, 19}, {20, 21, 22, 23}, {24, 25, 26, 27}, {28, 29, 30, 31},
-		}
-		result.q = 8
-
-	} else if convID == "CONV4s2" { //16*16*32 -> 8*8*64, kernel=3*3, k=2->4
-		result.Layer = 3
-		result.LayerStr = "layer3"
-		result.X = 0
-		result.Input = 1
-
-		result.InputDataWidth = 16
-		result.InputDataHeight = 16
-		result.InputDataChannel = 32
-		result.KernelSize = 3
-		result.KernelNumber = 64
-		result.Stride = 2
-		result.K = 2
-		result.AfterK = 4
-		result.BeforeCopy = 4
-		result.AfterCopy = 8
-
-		result.KernelMap = [][]int{
-			{0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15},
-			{16, 17, 18, 19}, {20, 21, 22, 23}, {24, 25, 26, 27}, {28, 29, 30, 31},
-			{32, 33, 34, 35}, {36, 37, 38, 39}, {40, 41, 42, 43}, {44, 45, 46, 47},
-			{48, 49, 50, 51}, {52, 53, 54, 55}, {56, 57, 58, 59}, {60, 61, 62, 63},
-		}
-
-		result.q = 16
-
-	} else if convID == "CONV4" { //8*8*64 -> 8*8*64, kernel=3*3, k=4
-		result.Layer = 3
-		result.LayerStr = "layer3"
-		result.X = 2
-		result.Input = 1
-
-		result.InputDataWidth = 8
-		result.InputDataHeight = 8
-		result.InputDataChannel = 64
-		result.KernelSize = 3
-		result.KernelNumber = 64
-		result.Stride = 1
-		result.K = 4
-		result.AfterK = 4
-		result.BeforeCopy = 8
-		result.AfterCopy = 8
-
-		// result.kernelMap = {
-		//     {0,16,32,48,8,24,40,56},{1,17,33,49,9,25,41,57},{2,18,34,50,10,26,42,58},{3,19,35,51,11,27,43,59},
-		//     {4,20,36,52,12,28,44,60},{5,21,37,53,13,29,45,61},{6,22,38,54,14,30,46,62},{7,23,39,55,15,31,47,63}
-		// };
-		result.KernelMap = [][]int{
-			{0, 1, 2, 3, 4, 5, 6, 7}, {8, 9, 10, 11, 12, 13, 14, 15}, {16, 17, 18, 19, 20, 21, 22, 23}, {24, 25, 26, 27, 28, 29, 30, 31},
-			{32, 33, 34, 35, 36, 37, 38, 39}, {40, 41, 42, 43, 44, 45, 46, 47}, {48, 49, 50, 51, 52, 53, 54, 55}, {56, 57, 58, 59, 60, 61, 62, 63},
-		}
-
-		result.q = 8
-
-	}
-
-	return &result
-}
-
-type ConvFeature struct {
-	Layer            int
-	LayerStr         string
-	X                int
-	Input            int
-	InputDataWidth   int
-	InputDataHeight  int
-	InputDataChannel int
-	KernelSize       int
-	KernelNumber     int
-	Stride           int
-	K                int
-	AfterK           int
-	BeforeCopy       int
-	AfterCopy        int
-	KernelMap        [][]int
-	Split            int
-	q                int
 }

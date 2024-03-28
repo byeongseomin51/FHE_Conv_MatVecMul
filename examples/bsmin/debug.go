@@ -510,41 +510,34 @@ func ErrorPrint(err error) {
 		fmt.Println(err)
 	}
 }
-func kernelTxtToVector(inputFilePath string) [][][][]float64 {
-	inputFile, err := os.Open(inputFilePath)
+func kernelTxtToVector(inputFilePath string) []float64 {
+	// 파일 열기
+	file, err := os.Open(inputFilePath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: 파일을 열 수 없습니다.\n", inputFilePath)
+		fmt.Println("Error:", err)
 		return nil
 	}
-	defer inputFile.Close()
+	defer file.Close()
 
-	scanner := bufio.NewScanner(inputFile)
+	var floats []float64
 
-	// 첫 줄에서 커널 모양을 읽습니다.
-	scanner.Scan()
-	kernelShape := splitWithSpace(scanner.Text())
-	kernelSize, _ := strconv.Atoi(kernelShape[2])
-	channel, _ := strconv.Atoi(kernelShape[1])
-	kernelNum, _ := strconv.Atoi(kernelShape[0])
+	// 파일 스캐너 생성
+	scanner := bufio.NewScanner(file)
 
-	// 커널 가중치를 저장할 4차원 배열을 초기화합니다.
-	kernelWeight := make([][][][]float64, kernelNum)
-	for kn := 0; kn < kernelNum; kn++ {
-		kernelWeight[kn] = make([][][]float64, channel)
-		for c := 0; c < channel; c++ {
-			kernelWeight[kn][c] = make([][]float64, kernelSize)
-			for ks1 := 0; ks1 < kernelSize; ks1++ {
-				kernelWeight[kn][c][ks1] = make([]float64, kernelSize)
-				for ks2 := 0; ks2 < kernelSize; ks2++ {
-					temp := scanner.Text()
-					val, _ := strconv.ParseFloat(temp, 64)
-					kernelWeight[kn][c][ks1][ks2] = val
-				}
-			}
+	// 각 줄 읽어오기
+	for scanner.Scan() {
+		// 문자열을 float64로 변환
+		floatVal, err := strconv.ParseFloat(scanner.Text(), 64)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return nil
 		}
+
+		// 슬라이스에 추가
+		floats = append(floats, floatVal)
 	}
 
-	return kernelWeight
+	return floats
 }
 func realConv(dataWidth, dataHeight, channel, kernelSize, kernelNum, stride int, data [][][]float64, kernel [][][][]float64) [][][]float64 {
 	resultWidth := dataWidth / stride
@@ -584,7 +577,7 @@ func realConv(dataWidth, dataHeight, channel, kernelSize, kernelNum, stride int,
 			}
 		}
 	}
-
+	fmt.Println(result)
 	return result
 }
 func splitWithSpace(str string) []string {

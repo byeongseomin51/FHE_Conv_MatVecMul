@@ -17,14 +17,13 @@ type MulParConv struct {
 	params         ckks.Parameters
 	preCompKernel  [][]*rlwe.Plaintext
 	preCompBNadd   *rlwe.Plaintext
-	preCompFilter  []*rlwe.Plaintext
+	preCompFilters [][]*rlwe.Plaintext
 	mode0TreeDepth int
 	cf             *ConvFeature
 
 	layerNum           int
 	blockNum           int
 	operationNum       int
-	convMap            [][]int
 	q                  int //length of kernel_map
 	rotIndex3by3Kernel []int
 	depth1Rotate       []int
@@ -34,11 +33,11 @@ type MulParConv struct {
 	splitNum       int
 }
 
-func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, params ckks.Parameters, resnetLayerNum int, convID string, depth int, blockNum int, operationNum int) *MulParConv {
+func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, params ckks.Parameters, resnetLayerNum int, convID string, blockNum int, operationNum int) *MulParConv {
 	// ("Conv : ", resnetLayerNum, convID, depth, blockNum, operationNum)
 
 	//MulParConv Setting
-	convMap, q, rotIndex3by3Kernel := GetConvMap(convID, depth)
+	_, q, rotIndex3by3Kernel := GetConvMap(convID, 2)
 
 	// conv feature
 	cf := GetConvFeature(convID)
@@ -73,7 +72,7 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, par
 	if cf.Stride != 1 {
 		luFilter = multVec(luFilter, StrideFilter(cf.K))
 	}
-	spFilter := splitFilter(luFilter, cf.BeforeCopy)
+	spFilter := crossFilter(luFilter, cf.BeforeCopy)
 	for i := 0; i < cf.BeforeCopy; i++ {
 		preCompFilter[i] = ckks.NewPlaintext(params, params.MaxLevel())
 		ec.Encode(spFilter[i], preCompFilter[i])
@@ -103,21 +102,28 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, par
 		depth0Rotate = append(depth0Rotate, beforeLocate-afterLoate)
 	}
 
+	//PerRotate preCompFilter to minimze rescaling
+	preCompFilters := make([][]*rlwe.Plaintext, cf.q)
+	for cipherNum := 0; cipherNum < cf.q; cipherNum++ {
+		for eachCopy := 0; eachCopy < cf.BeforeCopy; eachCopy++ {
+			preCompFilters[cipherNum] = append(preCompFilters[cipherNum], PlaintextRot(preCompFilter[eachCopy], depth0Rotate[cipherNum*cf.BeforeCopy+eachCopy], ec, params))
+		}
+	}
+
 	return &MulParConv{
 		encoder:   ec,
 		decryptor: dc,
 
-		Evaluator:     ev,
-		params:        params,
-		preCompKernel: preCompKernel,
-		preCompBNadd:  preCompBNadd,
-		preCompFilter: preCompFilter,
-		cf:            cf,
+		Evaluator:      ev,
+		params:         params,
+		preCompKernel:  preCompKernel,
+		preCompBNadd:   preCompBNadd,
+		preCompFilters: preCompFilters,
+		cf:             cf,
 
 		layerNum:           resnetLayerNum,
 		blockNum:           blockNum,
 		operationNum:       operationNum,
-		convMap:            convMap,
 		q:                  q,
 		rotIndex3by3Kernel: rotIndex3by3Kernel,
 		depth0Rotate:       depth0Rotate,
@@ -201,16 +207,16 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		// start = time.Now()
 		//Mul each filter to get each channel
 		for eachCopy := 0; eachCopy < obj.cf.BeforeCopy; eachCopy++ {
-			tempRelin, _ := obj.Evaluator.MulNew(mainCipher, obj.preCompFilter[eachCopy])
-			obj.Evaluator.Rescale(tempRelin, tempRelin)
-
 			if cipherNum == 0 && eachCopy == 0 {
-				ctOut, err = obj.Evaluator.RotateNew(tempRelin, obj.depth0Rotate[cipherNum*obj.cf.BeforeCopy+eachCopy])
+				temp, err := obj.Evaluator.RotateNew(mainCipher, obj.depth0Rotate[cipherNum*obj.cf.BeforeCopy+eachCopy])
 				ErrorPrint(err)
+				ctOut, _ = obj.Evaluator.MulNew(temp, obj.preCompFilters[cipherNum][eachCopy])
 			} else {
-				err = obj.Evaluator.Rotate(tempRelin, obj.depth0Rotate[cipherNum*obj.cf.BeforeCopy+eachCopy], tempRelin)
+				temp, err := obj.Evaluator.RotateNew(mainCipher, obj.depth0Rotate[cipherNum*obj.cf.BeforeCopy+eachCopy])
 				ErrorPrint(err)
-				err = obj.Evaluator.Add(ctOut, tempRelin, ctOut)
+				obj.Evaluator.Mul(temp, obj.preCompFilters[cipherNum][eachCopy], temp)
+				ErrorPrint(err)
+				err = obj.Evaluator.Add(ctOut, temp, ctOut)
 				ErrorPrint(err)
 			}
 		}
@@ -220,6 +226,7 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	// fmt.Println("all rotate and sum ", time.Now().Sub(start))
 	// start = time.Now()
+	obj.Evaluator.Rescale(ctOut, ctOut)
 
 	for afterCopy := 32768 / obj.cf.AfterCopy; afterCopy < 32768; afterCopy *= 2 {
 		obj.Evaluator.Rotate(ctOut, -afterCopy, tempCtLv0)

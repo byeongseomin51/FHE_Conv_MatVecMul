@@ -263,8 +263,8 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 		params:    params,
 		Encoder:   Encoder,
 
-		Level0RotKeyNeeded: RotKeyOrganize(resnetLayerNum),
-		rotKeyMap:          make(map[int]int),
+		// Level0RotKeyNeeded: RotKeyOrganize(resnetLayerNum),
+		rotKeyMap: make(map[int]int),
 	}
 }
 
@@ -371,7 +371,7 @@ func (obj Block) myLogSave(fileName string, ctIn *rlwe.Ciphertext) {
 
 // Use Level0 keys of resnet, this func return what kinds of level1 rot key is needed.
 // And make graph by using Level0RotKeyNeeded and Level1Rot keys
-func (obj ResnetCifar10) Level1RotKeyNeededForInference() []int {
+func Level1RotKeyNeededForInference(Level0RotKeyNeeded []int) []int {
 
 	//Find which level1 key is needed...
 	var level1 []int
@@ -400,12 +400,12 @@ func (obj ResnetCifar10) Level1RotKeyNeededForInference() []int {
 	// level1 = []int{1, -1, 16384, -16384, 16, -16, 32, -32, 1024, -1024, 2048, -2048, 4096, -4096, 8192, -8192}
 	// level1 = []int{1, -1, 2, -2, 4, -4, 16, -16, 64, -64, 1024, -1024, 4096, -4096, 16384, -16384}
 
-	level0 := obj.Level0RotKeyNeeded
+	level0 := Level0RotKeyNeeded
 	fmt.Println(level0)
 
 	//Make graph with this.
-	// nodes, graph := MakeGraph(level0, level1)
-	nodes, graph, Hgraph := MakeGraph(level0, level1)
+	// nodes, graph, Hgraph := MakeGraph(level0, level1)
+	_, graph, _ := MakeGraph(level0, level1)
 	fmt.Println("Graph created!")
 
 	//Make MST
@@ -413,15 +413,15 @@ func (obj ResnetCifar10) Level1RotKeyNeededForInference() []int {
 	fmt.Println("MST created!")
 
 	// Find minimum path.
-	for targetNode := 1; targetNode < len(nodes); targetNode++ {
-		minPath := findPath(0, targetNode, parent)
-		fmt.Print("Mimum path to ", targetNode, ":", minPath, " ")
-		for start := 1; start < len(minPath); start++ {
-			fmt.Print(nodes[minPath[start-1]].eachInt, Hgraph[minPath[start-1]][minPath[start]], nodes[minPath[start]].eachInt, "->")
-		}
-		fmt.Println()
+	// for targetNode := 1; targetNode < len(nodes); targetNode++ {
+	// 	minPath := findPath(0, targetNode, parent)
+	// 	fmt.Print("Mimum path to ", targetNode, ":", minPath, " ")
+	// 	for start := 1; start < len(minPath); start++ {
+	// 		fmt.Print(nodes[minPath[start-1]].eachInt, Hgraph[minPath[start-1]][minPath[start]], nodes[minPath[start]].eachInt, "->")
+	// 	}
+	// 	fmt.Println()
 
-	}
+	// }
 	//Print MST sum and average
 	mstSum := 0
 	for i := 1; i < len(graph); i++ {
@@ -433,7 +433,8 @@ func (obj ResnetCifar10) Level1RotKeyNeededForInference() []int {
 
 }
 
-func RotKeyOrganize(layer int) []int {
+// Return level0 needed rotation keys for mulpar and rotopt
+func RotKeyOrganize(layer int) ([]int, []int) {
 	// register
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
 	maxDepth := []int{2, 2, 2, 2, 2, 2}
@@ -460,6 +461,16 @@ func RotKeyOrganize(layer int) []int {
 	}
 	fmt.Println("Total ", length)
 
+	//Linearize Rot Keys
+	var resultRotOpt []int
+	for _, i := range rotOptRot {
+		for _, each := range i {
+			resultRotOpt = append(resultRotOpt, each)
+		}
+	}
+	//remove duplicate
+	resultRotOpt = removeDuplicates(resultRotOpt)
+
 	// Get MulParConv all rotation index
 	mulParRot := make([][]int, 3)
 	for i := 0; i < len(convIDs); i++ {
@@ -480,21 +491,19 @@ func RotKeyOrganize(layer int) []int {
 	}
 	fmt.Println("Total ", length)
 
-	//Switch
-	rotOptRot = mulParRot
-
 	//Linearize Rot Keys
-	var result []int
-	for _, i := range rotOptRot {
+	var resultMulPar []int
+	for _, i := range mulParRot {
 		for _, each := range i {
-			result = append(result, each)
+			resultMulPar = append(resultMulPar, each)
 		}
 	}
 	//remove duplicate
-	result = removeDuplicates(result)
+	resultMulPar = removeDuplicates(resultMulPar)
+
 	// fmt.Println("Remove duplicate then ", len(result))
 
-	return result
+	return resultMulPar, resultRotOpt
 }
 
 func removeDuplicates(nums []int) []int {

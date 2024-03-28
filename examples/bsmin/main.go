@@ -250,7 +250,7 @@ func fullyConnectedTest(layerNum int, cc *customContext) {
 	sample1DArray(outputFloat, 0, 10)
 }
 
-func downSamplingTest(cc *customContext) {
+func rotOptDownSamplingTest(cc *customContext) {
 	//register
 	rot := mulParModules.RotOptDSRegister()
 
@@ -264,168 +264,207 @@ func downSamplingTest(cc *customContext) {
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
 
-	//Encryption
-	inputCt := floatToCiphertext(inputFloat, cc.Params, cc.Encoder, cc.EncryptorSk)
-	///////////
-	//Timer start
-	startTime := time.Now()
+	for level := 2; level <= cc.Params.MaxLevel(); level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+		// /////////
+		// Timer start
+		startTime := time.Now()
 
-	//AvgPooling Foward
-	outputCt16 := ds16.Foward(inputCt)
+		// AvgPooling Foward
+		ds16.Foward(inputCt)
 
-	//Timer end
-	endTime := time.Now()
+		// Timer end
+		endTime := time.Now()
 
-	//Print Elapsed Time
-	fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
-	//////////
-	//Timer start
-	startTime = time.Now()
+		// Print Elapsed Time
+		fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
+		// ////////
+		// Timer start
+		startTime = time.Now()
 
-	//AvgPooling Foward
-	outputCt32 := ds32.Foward(inputCt)
+		// AvgPooling Foward
+		ds32.Foward(inputCt)
 
-	//Timer end
-	endTime = time.Now()
+		// Timer end
+		endTime = time.Now()
 
-	//Print Elapsed Time
-	fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
-
-	//Decryption
-	outputFloat16 := ciphertextToFloat(outputCt16, cc)
-	outputFloat32 := ciphertextToFloat(outputCt32, cc)
-
-	//Test
-	fmt.Println("==16==")
-	count01num(outputFloat16)
-	fmt.Println("\n==32==")
-	count01num(outputFloat32)
-}
-
-func getConvTestTxtPath(convID string) string {
-	if convID == "CONV1" {
-		return "conv1_weight.txt"
-	} else if convID == "CONV2" {
-		return "layer1_0_conv1_weight.txt"
-	} else if convID == "CONV3s2" {
-		return "layer2_0_conv1_weight.txt"
-	} else if convID == "CONV3" {
-		return "layer2_0_conv2_weight.txt"
-	} else if convID == "CONV4s2" {
-		return "layer3_0_conv1_weight.txt"
-	} else if convID == "CONV4" {
-		return "layer3_0_conv2_weight.txt"
+		// Print Elapsed Time
+		fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
 	}
-	return ""
-}
 
-func getConvTestNum(convID string) []int {
-	if convID == "CONV1" {
-		return []int{0, 1}
-	} else if convID == "CONV2" {
-		return []int{0, 1}
-	} else if convID == "CONV3s2" {
-		return []int{0, 1}
-	} else if convID == "CONV3" {
-		return []int{0, 2}
-	} else if convID == "CONV4s2" {
-		return []int{0, 1}
-	} else if convID == "CONV4" {
-		return []int{0, 2}
+	// 	//Decryption
+	// 	outputFloat16 := ciphertextToFloat(outputCt16, cc)
+	// 	outputFloat32 := ciphertextToFloat(outputCt32, cc)
+
+	// //Test
+	// fmt.Println("==16==")
+	// count01num(outputFloat16)
+	// fmt.Println("\n==32==")
+	// count01num(outputFloat32)
+}
+func mulParDownSamplingTest(cc *customContext) {
+	//register
+	rot := mulParModules.MulParDSRegister()
+
+	//rot register
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+
+	//make avgPooling instance
+	ds16 := mulParModules.NewMulParDS(16, newEvaluator, cc.Encoder, cc.Params)
+	ds32 := mulParModules.NewMulParDS(32, newEvaluator, cc.Encoder, cc.Params)
+
+	//Make input float data
+	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+
+	for level := 1; level <= cc.Params.MaxLevel(); level++ {
+		fmt.Println("===", level, "===")
+		// Encryption
+		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+		// /////////
+		// Timer start
+		startTime := time.Now()
+
+		// AvgPooling Foward
+		ds16.Foward(inputCt)
+
+		// Timer end
+		endTime := time.Now()
+
+		// Print Elapsed Time
+		fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
+		// ////////
+		// Timer start
+		startTime = time.Now()
+
+		// AvgPooling Foward
+		ds32.Foward(inputCt)
+
+		// Timer end
+		endTime = time.Now()
+
+		// Print Elapsed Time
+		fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
 	}
-	return []int{}
+
+	// 	//Decryption
+	// 	outputFloat16 := ciphertextToFloat(outputCt16, cc)
+	// 	outputFloat32 := ciphertextToFloat(outputCt32, cc)
+
+	// //Test
+	// fmt.Println("==16==")
+	// count01num(outputFloat16)
+	// fmt.Println("\n==32==")
+	// count01num(outputFloat32)
 }
-func mulParConvTest(layerNum int, cc *customContext, startCipherLevel int) {
-	// mulParModules.MakeTxtRotOptConvWeight()
-	// mulParModules.MakeTxtRotOptConvFilter()
-	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	maxDepth := []int{2, 2, 2, 2, 2, 2}
-	iter := 1
 
-	for index := 0; index < len(convIDs); index++ {
-		for depth := 2; depth < maxDepth[index]+1; depth++ {
-			convID := convIDs[index]
-			fmt.Printf("convID : %s, Depth : %v, iter : %v\n", convID, depth, iter)
+// func mulParConvTest(layerNum int, cc *customContext, startCipherLevel int) {
+// 	// mulParModules.MakeTxtRotOptConvWeight()
+// 	// mulParModules.MakeTxtRotOptConvFilter()
+// 	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+// 	// maxDepth := []int{2, 2, 2, 2, 2, 2}
+// 	convIDs := []string{"CONV4s2"}
+// 	maxDepth := []int{2}
+// 	iter := 1
 
-			/////Real Convolution/////
-			cf := mulParModules.GetConvFeature(convID)
-			inputRandomVector := makeRandomData(cf.InputDataWidth, cf.InputDataHeight, cf.InputDataChannel)
+// 	for index := 0; index < len(convIDs); index++ {
+// 		for depth := 2; depth < maxDepth[index]+1; depth++ {
+// 			convID := convIDs[index]
+// 			fmt.Printf("convID : %s, Depth : %v, iter : %v\n", convID, depth, iter)
 
-			flattenInputData := flatten(inputRandomVector)
+// 			/////Real Convolution/////
+// 			cf := mulParModules.GetConvFeature(convID)
+// 			inputRandomVector := makeRandomData(cf.InputDataWidth, cf.InputDataHeight, cf.InputDataChannel)
 
-			if cf.InputDataChannel == 3 {
-				for i := 0; i < 1024; i++ {
-					flattenInputData = append(flattenInputData, 0)
-				}
-			}
+// 			flattenInputData := flatten(inputRandomVector)
 
-			flattenInputData = copyPaste(flattenInputData, cf.BeforeCopy)
+// 			if cf.InputDataChannel == 3 {
+// 				for i := 0; i < 1024; i++ {
+// 					flattenInputData = append(flattenInputData, 0)
+// 				}
+// 			}
 
-			if len(flattenInputData) != 32768 {
-				fmt.Println("You set the wrong parameter!")
-			}
+// 			flattenInputData = copyPaste(flattenInputData, cf.BeforeCopy)
 
-			flattenInputData = packingWithWidth(flattenInputData, cf.InputDataWidth, cf.K)
+// 			if len(flattenInputData) != 32768 {
+// 				fmt.Println("You set the wrong parameter!")
+// 			}
 
-			kernel_filePath := "mulParModules/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/" + getConvTestTxtPath(convID)
+// 			flattenInputData = packingWithWidth(flattenInputData, cf.InputDataWidth, cf.K)
 
-			flattenOriginal := flatten(realConv(cf.InputDataWidth, cf.InputDataHeight, cf.InputDataChannel, cf.KernelSize, cf.KernelNumber, cf.Stride, inputRandomVector, kernelTxtToVector(kernel_filePath)))
-			flattenOriginal = copyPaste(flattenOriginal, cf.AfterCopy)
-			if len(flattenOriginal) != 32768 {
-				fmt.Println("You have set wrong parameter!")
-			}
+// 			kernel_filePath := "mulParModules/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/" + getConvTestTxtPath(convID)
+// 			fmt.Println(kernelTxtToVector(kernel_filePath))
+// 			flattenOriginal := flatten(realConv(cf.InputDataWidth, cf.InputDataHeight, cf.InputDataChannel, cf.KernelSize, cf.KernelNumber, cf.Stride, inputRandomVector, kernelTxtToVector(kernel_filePath)))
+// 			flattenOriginal = copyPaste(flattenOriginal, cf.AfterCopy)
+// 			flattenOriginal = packingWithWidth(flattenOriginal, cf.InputDataWidth/cf.Stride, cf.K*cf.Stride)
+// 			if len(flattenOriginal) != 32768 {
+// 				fmt.Println("You have set wrong parameter!")
+// 			}
 
-			////CKKS convolution////
-			d := startCipherLevel
-			if depth > startCipherLevel {
-				d = depth
-			}
-			plain := ckks.NewPlaintext(cc.Params, d)
-			cc.Encoder.Encode(flattenInputData, plain)
-			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+// 			////CKKS convolution////
+// 			d := startCipherLevel
+// 			if depth > startCipherLevel {
+// 				d = depth
+// 			}
+// 			plain := ckks.NewPlaintext(cc.Params, d)
+// 			cc.Encoder.Encode(flattenInputData, plain)
+// 			// inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
 
-			//register
-			rot := mulParModules.MulParConvRegister(convID)
-			// for _, r := range rot {
-			// 	fmt.Println(len(r), r)
-			// }
+// 			//register
+// 			rot := mulParModules.MulParConvRegister(convID)
+// 			// for _, r := range rot {
+// 			// 	fmt.Println(len(r), r)
+// 			// }
 
-			// for i := 0; i < 3; i++ {
-			// 	fmt.Println(len(rot[i]))
-			// }
+// 			// for i := 0; i < 3; i++ {
+// 			// 	fmt.Println(len(rot[i]))
+// 			// }
 
-			//rot register
-			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rot), cc.Params, cc.Kgen, cc.Sk)
+// 			//rot register
+// 			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rot), cc.Params, cc.Kgen, cc.Sk)
 
-			//make rotOptConv instance
-			conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+// 			//make rotOptConv instance
+// 			conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
-			var outputCt *rlwe.Ciphertext
-			//Timer start
-			startTime := time.Now()
+// 			var outputCt *rlwe.Ciphertext
+// 			//Timer start
+// 			startTime := time.Now()
 
-			//Conv Foward
-			for i := 0; i < iter; i++ {
-				outputCt = conv.Foward(inputCt)
-			}
+// 			//Conv Foward
+// 			// for i := 0; i < iter; i++ {
+// 			// 	outputCt = conv.Foward(inputCt)
+// 			// }
+// 			for level := 2; level <= cc.Params.MaxLevel(); level++ {
+// 				plain := ckks.NewPlaintext(cc.Params, level)
+// 				cc.Encoder.Encode(flattenInputData, plain)
+// 				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+// 				startTime := time.Now()
+// 				outputCt = conv.Foward(inputCt)
+// 				endTime := time.Now()
 
-			//Timer end
-			endTime := time.Now()
+// 				fmt.Printf("( %d, %v) \n", level, endTime.Sub(startTime)/time.Duration(iter))
+// 			}
 
-			//Print Elapsed Time
-			fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
+// 			//Timer end
+// 			endTime := time.Now()
 
-			//Decryption
-			outputFloat := ciphertextToFloat(outputCt, cc)
+// 			//Print Elapsed Time
+// 			fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
 
-			// fmt.Println(euclideanDistance(unpacking(outputFloat, cf.InputDataWidth/cf.Stride, cf.K*cf.Stride), flattenOriginal))
-			euclideanDistance(unpacking(outputFloat, cf.InputDataWidth/cf.Stride, cf.K*cf.Stride), flattenOriginal)
+// 			//Decryption
+// 			outputFloat := ciphertextToFloat(outputCt, cc)
 
-			// // sample1DArray(outputFloat, 0, 32768)
-			// sample1DArray(outputFloat, 0, 32768)
-		}
-	}
-}
+// 			// fmt.Println(euclideanDistance(unpacking(outputFloat, cf.InputDataWidth/cf.Stride, cf.K*cf.Stride), flattenOriginal))
+// 			euclideanDistance(outputFloat, flattenOriginal)
+
+// 			floatToTxt("outputFloat", outputFloat)
+// 			floatToTxt("flattenOriginal", flattenOriginal)
+
+//				// // sample1DArray(outputFloat, 0, 32768)
+//				// sample1DArray(outputFloat, 0, 32768)
+//			}
+//		}
+//	}
 func MakeGalois(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
 
 	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
@@ -466,11 +505,13 @@ func ClientMakeGaloisWithLevel(cc *customContext, rotIndexes [][]int) [][]*rlwe.
 func rotOptConvTest(layerNum int, cc *customContext, startCipherLevel int) {
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
-	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
 	// convIDs := []string{"CONV3", "CONV4s2"}
+	convIDs := []string{"CONV2"}
+	maxDepth := []int{2}
 	// maxDepth := []int{2, 4, 5, 4, 5, 4}
 	// maxDepth := []int{2, 2}
-	maxDepth := []int{2, 2, 2, 2, 2, 2}
+	// maxDepth := []int{2}
 
 	iter := 1
 
@@ -502,10 +543,33 @@ func rotOptConvTest(layerNum int, cc *customContext, startCipherLevel int) {
 
 			flattenInputData = packingWithWidth(flattenInputData, cf.InputDataWidth, cf.K)
 
-			kernel_filePath := "mulParModules/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/" + getConvTestTxtPath(convID)
+			kernel_filePath := "mulParModules/precomputed/rotOptConv/kernelWeight/" + strconv.Itoa(layerNum) + "/layer" + strconv.Itoa(getConvTestNum(convID)[0]) + "/" + strconv.Itoa(getConvTestNum(convID)[1])
+			kernelFloat := kernelTxtToVector(kernel_filePath)
+			kernelFloat = unpacking(kernelFloat, cf.InputDataWidth, cf.K)
 
-			flattenOriginal := flatten(realConv(cf.InputDataWidth, cf.InputDataHeight, cf.InputDataChannel, cf.KernelSize, cf.KernelNumber, cf.Stride, inputRandomVector, kernelTxtToVector(kernel_filePath)))
+			kernelSize := 16
+			channel := 16
+			kernelNum := 3
+			index := 0
+			// 커널 가중치를 저장할 4차원 배열을 초기화합니다.
+			kernelWeight := make([][][][]float64, kernelNum)
+			for kn := 0; kn < kernelNum; kn++ {
+				kernelWeight[kn] = make([][][]float64, channel)
+				for c := 0; c < channel; c++ {
+					kernelWeight[kn][c] = make([][]float64, kernelSize)
+					for ks1 := 0; ks1 < kernelSize; ks1++ {
+						kernelWeight[kn][c][ks1] = make([]float64, kernelSize)
+						for ks2 := 0; ks2 < kernelSize; ks2++ {
+							kernelWeight[kn][c][ks1][ks2] = kernelFloat[index]
+							index++
+						}
+					}
+				}
+			}
+
+			flattenOriginal := flatten(realConv(cf.InputDataWidth, cf.InputDataHeight, cf.InputDataChannel, cf.KernelSize, cf.KernelNumber, cf.Stride, inputRandomVector, kernelWeight))
 			flattenOriginal = copyPaste(flattenOriginal, cf.AfterCopy)
+			flattenOriginal = packingWithWidth(flattenOriginal, cf.InputDataWidth/cf.Stride, cf.K*cf.Stride)
 			if len(flattenOriginal) != 32768 {
 				fmt.Println("You have set wrong parameter!")
 			}
@@ -533,24 +597,38 @@ func rotOptConvTest(layerNum int, cc *customContext, startCipherLevel int) {
 
 			var outputCt *rlwe.Ciphertext
 			//Timer start
-			startTime := time.Now()
+			// startTime := time.Now()
 
 			//Conv Foward
 			for i := 0; i < iter; i++ {
 				outputCt = conv.Foward(inputCt)
 			}
 
+			// for level := 2; level <= cc.Params.MaxLevel(); level++ {
+			// 	plain := ckks.NewPlaintext(cc.Params, level)
+			// 	cc.Encoder.Encode(flattenInputData, plain)
+			// 	inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+			// 	startTime := time.Now()
+			// 	outputCt = conv.Foward(inputCt)
+			// 	endTime := time.Now()
+
+			// 	fmt.Printf("( %d, %v) \n", level, endTime.Sub(startTime)/time.Duration(iter))
+			// }
+
 			//Timer end
-			endTime := time.Now()
+			// endTime := time.Now()
 
 			//Print Elapsed Time
-			fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
+			// fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
+			// fmt.Printf("%v) \n", endTime.Sub(startTime)/time.Duration(iter))
 
 			//Decryption
 			outputFloat := ciphertextToFloat(outputCt, cc)
 
-			// fmt.Println(euclideanDistance(unpacking(outputFloat, cf.InputDataWidth/cf.Stride, cf.K*cf.Stride), flattenOriginal))
-			euclideanDistance(unpacking(outputFloat, cf.InputDataWidth/cf.Stride, cf.K*cf.Stride), flattenOriginal)
+			fmt.Println(euclideanDistance(outputFloat, flattenOriginal))
+
+			floatToTxt("outputFloat", outputFloat)
+			floatToTxt("flattenOriginal", flattenOriginal)
 
 			// // sample1DArray(outputFloat, 0, 32768)
 			// sample1DArray(outputFloat, 0, 32768)
@@ -682,7 +760,7 @@ func conv1Test(cc *customContext) {
 	// Make new Evaluator with rot indices
 	newEvaluator := RotIndexToGaloisElements(int2dTo1d(rots), cc)
 
-	conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, 20, "CONV1", 2, 0, 1)
+	conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, 20, "CONV1", 0, 1)
 
 	outCt := conv.Foward(cipherInput)
 
@@ -777,9 +855,10 @@ func setCKKSEnv() *customContext {
 	// })
 
 	context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
-		LogN:            16,
-		LogQ:            []int{51, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46},
-		LogP:            []int{60, 60, 60},
+		LogN: 16,
+		LogQ: []int{51, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46,
+			46, 46, 46, 46, 46, 46, 46, 46, 46, 46}, //24개
+		LogP:            []int{60, 60, 60, 60, 60}, //5개
 		LogDefaultScale: 46,
 	})
 
@@ -1104,146 +1183,121 @@ func OrganizeRot(rotIndexes [][]int) [][]int {
 	}
 	return result
 }
-func serverTest() {
-	//Set CKKS variable
-	clientContext := setCKKSEnv()
+func HierarchyKeyTest(layer int) {
+	//Organize what kinds of key-level 0 keys needed.
+	mulParRot, rotOptRot := RotKeyOrganize(layer)
 
-	// Set Resnet Layer
-	layer := 20
-
-	//Make Resnet
-	serverResnet20 := NewResnetCifar10(layer, clientContext.Evaluator, clientContext.Encoder, clientContext.Decryptor, clientContext.Params, clientContext.EncryptorSk, clientContext.Kgen, clientContext.Sk)
-	fmt.Println("Resnet Created!")
-
-	//Get what level1 rot key needed
-	requireLevel1Keys := serverResnet20.Level1RotKeyNeededForInference()
-	fmt.Println(requireLevel1Keys)
-
-	// // Make level1 Rot keys.
-	// var level1Keys []*HierarchyKey
-	// var galElements []uint64
-	// for _, rotIndex := range requireLevel1Keys {
-	// 	galElements = append(galElements, clientContext.Params.GaloisElement(rotIndex))
-	// }
-	// galKeys := clientContext.Kgen.GenGaloisKeysNew(galElements, clientContext.Sk)
-
-	// for i := 0; i < len(requireLevel1Keys); i++ {
-	// 	level1Keys = append(level1Keys, NewHierarchyKey(requireLevel1Keys[i], 1, galKeys[i]))
-	// }
-
-	// // Give it to Server resnet
-	// serverResnet20.Level1RotKeys = level1Keys
-
-	// //Make input float data
-	// inputFloat := makeRandomFloat(clientContext.Params.MaxSlots())
-
-	// //Rotate?
-	// inputCt := floatToCiphertextLevel(inputFloat, 10, clientContext.Params, clientContext.Encoder, clientContext.EncryptorSk)
-
-	// serverResnet20.Inference(inputCt)
+	//For MulPar
+	fmt.Println("===For MulPar!===")
+	fmt.Println(Level1RotKeyNeededForInference(mulParRot))
+	//For rotOptRot
+	fmt.Println("===For RotOpt!===")
+	fmt.Println(Level1RotKeyNeededForInference(rotOptRot))
 
 }
 func hoistSumTest(cc *customContext) {
 	// Initial Time Test
-	// for ctLevel := 0; ctLevel < cc.Params.MaxLevel(); ctLevel++ {
-	// 	fmt.Println("===== For ctLevel : ", ctLevel, " =====")
-	// 	// Make input float data
-	// 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
-	// 	ctIn := floatToCiphertextLevel(inputFloat, ctLevel, cc.Params, cc.Encoder, cc.EncryptorSk)
-	// 	rotIndex := []int{1, 2, 3, 4, 5, 6, 7}
-	// 	lenIndex := float64(len(rotIndex))
-	// 	newEv := rotIndexToGaloisEl(rotIndex, cc.Params, cc.Kgen, cc.Sk)
+	for ctLevel := 0; ctLevel <= cc.Params.MaxLevel(); ctLevel++ {
+		fmt.Println("===== For ctLevel : ", ctLevel, " =====")
+		// Make input float data
+		inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+		ctIn := floatToCiphertextLevel(inputFloat, ctLevel, cc.Params, cc.Encoder, cc.EncryptorSk)
+		rotIndex := []int{1, 2, 3, 4, 5, 6, 7}
+		lenIndex := float64(len(rotIndex))
+		newEv := rotIndexToGaloisEl(rotIndex, cc.Params, cc.Kgen, cc.Sk)
 
-	// 	// Get Hoist ratio of precomp and other and get mathematical solution (only first time)
-	// 	startTime := time.Now()
-	// 	ctOuts, _ := newEv.RotateHoistedNew(ctIn, rotIndex)
-	// 	for c := range ctOuts {
-	// 		newEv.Add(ctIn, c, ctIn)
-	// 	}
-	// 	endTime := time.Now()
-	// 	hoistTime := endTime.Sub(startTime).Milliseconds()
+		// Get Hoist ratio of precomp and other and get mathematical solution (only first time)
+		startTime := time.Now()
+		ctOuts, _ := newEv.RotateHoistedNew(ctIn, rotIndex)
+		for c := range ctOuts {
+			newEv.Add(ctIn, c, ctIn)
+		}
+		endTime := time.Now()
+		hoistTime := endTime.Sub(startTime).Milliseconds()
 
-	// 	startTime = time.Now()
-	// 	for i := 0; i < len(rotIndex); i++ {
-	// 		temp, _ := newEv.RotateNew(ctIn, rotIndex[i])
-	// 		newEv.Add(temp, ctIn, ctIn)
-	// 	}
-	// 	endTime = time.Now()
-	// 	originalTime := endTime.Sub(startTime).Milliseconds()
+		startTime = time.Now()
+		for i := 0; i < len(rotIndex); i++ {
+			temp, _ := newEv.RotateNew(ctIn, rotIndex[i])
+			newEv.Add(temp, ctIn, ctIn)
+		}
+		endTime = time.Now()
+		originalTime := endTime.Sub(startTime).Milliseconds()
 
-	// 	fmt.Println(hoistTime, originalTime)
-	// 	precomp := float64(originalTime-hoistTime) / float64(lenIndex-1)
-	// 	fmt.Println("precomp : ", precomp)
-	// 	other := (float64(originalTime) - lenIndex*precomp) / lenIndex
-	// 	fmt.Println("other : ", other)
+		fmt.Println(hoistTime, originalTime)
+		precomp := float64(originalTime-hoistTime) / float64(lenIndex-1)
+		fmt.Println("precomp : ", precomp)
+		other := (float64(originalTime) - lenIndex*precomp) / lenIndex
+		fmt.Println("other : ", other)
 
-	// 	fmt.Println(precomp + other*lenIndex)
-	// 	fmt.Println(precomp*lenIndex + other*lenIndex)
+		fmt.Println(precomp + other*lenIndex)
+		fmt.Println(precomp*lenIndex + other*lenIndex)
 
-	// 	// Get optimized solution
-	// 	for length := 4; length < 32; length *= 2 {
-	// 		fmt.Println("time	original hoist	Length")
-	// 		fmt.Print(FindOptHoist(precomp, other, length))
-	// 		fmt.Println("	", length)
-	// 	}
+		// Get optimized solution
+		// for length := 4; length < 32; length *= 2 {
+		// 	fmt.Println("time	original hoist	Length")
+		// 	fmt.Print(FindOptHoist(precomp, other, length))
+		// 	fmt.Println("	", length)
+		// }
+		fmt.Print(FindOptHoist(precomp, other, 16))
 
-	// 	// Run OptHoistSum
-	// 	for size := 8; size <= 8; size *= 2 {
-	// 		inputCt := floatToCiphertextLevel(inputFloat, 1, cc.Params, cc.Encoder, cc.EncryptorSk)
-	// 		var rotIndexes []int
-	// 		for i := 1; i < size; i++ {
-	// 			rotIndexes = append(rotIndexes, i)
-	// 		}
+		// // Run OptHoistSum
+		// for size := 8; size <= 8; size *= 2 {
+		// 	inputCt := floatToCiphertextLevel(inputFloat, 1, cc.Params, cc.Encoder, cc.EncryptorSk)
+		// 	var rotIndexes []int
+		// 	for i := 1; i < size; i++ {
+		// 		rotIndexes = append(rotIndexes, i)
+		// 	}
 
-	// 		OptHoistSum(inputCt, rotIndexes, newEv)
-	// 	}
-	// }
-
-	//Simple Test
-	var inputFloat []float64
-	for i := 0; i < 32768; i++ {
-		j := i % 10
-		inputFloat = append(inputFloat, float64(j))
+		// 	OptHoistSum(inputCt, rotIndexes, newEv)
+		// }
 	}
 
-	ctIn := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
-	printCipherSample("output", ctIn, cc, 0, 10)
-	rotIndex := []int{1, -2, -4}
-	rotIndexes := []int{-6, -5, -4, -3 - 2, -1, 1, 2, 3, 4, 5, 6, 7}
-	newEv := rotIndexToGaloisEl(rotIndexes, cc.Params, cc.Kgen, cc.Sk)
-	startTime := time.Now()
-	ctOut := OptHoistSum(ctIn, rotIndex, newEv)
-	endTime := time.Now()
-
-	fmt.Println("Time : ", endTime.Sub(startTime))
-	printCipherSample("output", ctOut, cc, 0, 10)
-}
-func algorTest() {
-	//PrimMST test
-	// graph := [][]int{
-	// 	{0, 1, 3, 2, 2, 3},
-	// 	{1, 0, 2, 2, 1, 2},
-	// 	{3, 2, 0, 2, 1, 2},
-	// 	{2, 2, 2, 0, 1, 2},
-	// 	{2, 1, 1, 1, 0, 1},
-	// 	{3, 2, 2, 2, 1, 0},
+	//Simple Test
+	// var inputFloat []float64
+	// for i := 0; i < 32768; i++ {
+	// 	j := i % 10
+	// 	inputFloat = append(inputFloat, float64(j))
 	// }
-	// parent := PrimMST(graph)
-	// for i := 1; i < len(graph); i++ {
-	// 	println(parent[i], " - ", i, "\t", graph[i][parent[i]])
-	// }
-	// fmt.Println(parent)
 
-	//Make Graph test
+	// ctIn := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
+	// printCipherSample("output", ctIn, cc, 0, 10)
+	// rotIndex := []int{1, -2, -4}
+	// rotIndexes := []int{-6, -5, -4, -3 - 2, -1, 1, 2, 3, 4, 5, 6, 7}
+	// newEv := rotIndexToGaloisEl(rotIndexes, cc.Params, cc.Kgen, cc.Sk)
+	// startTime := time.Now()
+	// ctOut := OptHoistSum(ctIn, rotIndex, newEv)
+	// endTime := time.Now()
 
-	eachInts := []int{1, 13, 16, 17, 19}
-	move := []int{1, -1, 2, -2, 4, -4, 8, -8, 16, -16}
-
-	nodes, graph, Hgraph := MakeGraph(eachInts, move)
-	fmt.Println(nodes, graph)
-	fmt.Println(Hgraph)
-
+	// fmt.Println("Time : ", endTime.Sub(startTime))
+	// printCipherSample("output", ctOut, cc, 0, 10)
 }
+
+// func algorTest() {
+// 	//PrimMST test
+// 	// graph := [][]int{
+// 	// 	{0, 1, 3, 2, 2, 3},
+// 	// 	{1, 0, 2, 2, 1, 2},
+// 	// 	{3, 2, 0, 2, 1, 2},
+// 	// 	{2, 2, 2, 0, 1, 2},
+// 	// 	{2, 1, 1, 1, 0, 1},
+// 	// 	{3, 2, 2, 2, 1, 0},
+// 	// }
+// 	// parent := PrimMST(graph)
+// 	// for i := 1; i < len(graph); i++ {
+// 	// 	println(parent[i], " - ", i, "\t", graph[i][parent[i]])
+// 	// }
+// 	// fmt.Println(parent)
+
+// 	//Make Graph test
+
+// 	eachInts := []int{1, 13, 16, 17, 19}
+// 	move := []int{1, -1, 2, -2, 4, -4, 8, -8, 16, -16}
+
+// 	nodes, graph, Hgraph := MakeGraph(eachInts, move)
+// 	fmt.Println(nodes, graph)
+// 	fmt.Println(Hgraph)
+
+// }
 func tempTimeTest(cc *customContext) {
 	// Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
@@ -1317,9 +1371,9 @@ func generalKeyTest(cc *customContext) {
 	multMaxkey0 := NewGeneralKey(1, 0, cc.Params.MaxLevel(), &cc.Params)
 	eachKeySize := multMaxkey0.GetKeySize()
 	fmt.Println("==MulPar with max Mult Level, 0 key level==")
-	fmt.Println(eachKeySize*len(linmulPar)/1048576, "MB")
+	fmt.Println(float64(eachKeySize*len(linmulPar))/1048576.0, "MB")
 	fmt.Println("==RotOpt with max Mult Level, 0 key level==")
-	fmt.Println(eachKeySize*len(linrotOpt)/1048576, "MB")
+	fmt.Println(float64(eachKeySize*len(linrotOpt))/1048576.0, "MB")
 
 	// multMaxkey0.PrintKeyInfo()
 	// With max Mult Level , 1 key level
@@ -1332,20 +1386,20 @@ func generalKeyTest(cc *customContext) {
 	// fmt.Println("MulPar with max Mult Level, 1 key level")
 	// fmt.Println(eachKeySize*len(lv1keys)/1048576, "MB")
 	fmt.Println("==RotOpt with max Mult Level, 1 key level==")
-	fmt.Println(eachKeySize*len(lv1keys)/1048576, "MB")
+	fmt.Println(float64(eachKeySize*len(lv1keys))/1048576.0, "MB")
 
 	// With opt Mult Level , 1 key level
 	// fmt.Println("MulPar with opt Mult Level, 1 key level")
 	fmt.Println("==RotOpt with opt Mult Level, 0 key level==")
 	mult2key0 := NewGeneralKey(1, 0, 2, &cc.Params)
 	eachKeySize = mult2key0.GetKeySize()
-	fmt.Println(eachKeySize*len(linrotOpt)/1048576, "MB")
+	fmt.Println(float64(eachKeySize*len(linrotOpt))/1048576.0, "MB")
 
 	//Final. Opt Mult Level, 1 key level
 	fmt.Println("==RotOpt with opt Mult Level, 1 key level==")
 	mult2key1 := GenLevelUpKey(mult2key0, hdnum)
 	eachKeySize = mult2key1.GetKeySize()
-	fmt.Println(eachKeySize*len(linrotOpt)/1048576, "MB")
+	fmt.Println(float64(eachKeySize*len(linrotOpt))/1048576.0, "MB")
 
 	// lv0key := NewGeneralKey(1, 0, 2, &cc.Params)
 	// fmt.Println(lv0key.GetKeySize(), "byte")
@@ -1356,6 +1410,75 @@ func generalKeyTest(cc *customContext) {
 	// fmt.Println(lv1key)
 
 }
+func getBluePrint() {
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+
+	for index := 0; index < len(convIDs); index++ {
+		convMap, _, _ := mulParModules.GetConvMap(convIDs[index], 3)
+		rotSumBP := make([][]int, 1)
+		rotSumBP[0] = []int{0}
+		crossSumBP := make([]int, 0)
+		for d := 1; d < len(convMap); d++ {
+
+			if convMap[d][0] == 3 {
+				crossSumBP = append(crossSumBP, convMap[d][1])
+				crossSumBP = append(crossSumBP, 0)
+				crossSumBP = append(crossSumBP, convMap[d][2:]...)
+				break
+			} else {
+				rotSumBP = append(rotSumBP, convMap[d])
+			}
+
+		}
+		rotSumBP[0][0] = len(rotSumBP) - 1
+
+		fmt.Print("[")
+		for _, row := range rotSumBP {
+			fmt.Print("[")
+			for i, val := range row {
+				if i > 0 {
+					fmt.Print(", ")
+				}
+				fmt.Printf("%d", val)
+			}
+			fmt.Print("]")
+		}
+		fmt.Println("]")
+
+		fmt.Print("[")
+		for i, val := range crossSumBP {
+			if i > 0 {
+				fmt.Print(", ")
+			}
+			fmt.Printf("%d", val)
+		}
+		fmt.Print("]")
+		fmt.Println()
+		fmt.Println()
+		// fmt.Println(rotSumBP, crossSumBP)
+	}
+
+}
+func rotOptConvAccuracyTestForAllConv(layer int, context *customContext) {
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	maxConvDepth := []int{2, 4, 5, 4, 5, 4}
+
+	startDepth := 2
+	for index := 0; index < len(convIDs); index++ {
+		for convDepth := startDepth; convDepth < maxConvDepth[index]+1; convDepth++ { //원래 depth:=2
+			rotOptConvAccuracyTest(layer, context, convIDs[index], convDepth, convDepth)
+		}
+	}
+
+}
+
+func mulParConvAccuracyTestForAllConv(layer int, context *customContext) {
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+
+	for index := 0; index < len(convIDs); index++ {
+		mulParConvAccuracyTest(layer, context, convIDs[index], 2)
+	}
+}
 func main() {
 
 	//CKKS settings
@@ -1363,7 +1486,7 @@ func main() {
 
 	//Resnet Setting
 	// images := getCifar10()
-	// layer := 20
+	layer := 20
 
 	// conv1Test(context)
 	// resnetInferenceTest(layer, context) //You have to enable myLogsSave codes in resnet.go to use this function.
@@ -1380,22 +1503,23 @@ func main() {
 	// resnet operation tests
 	// avgPoolTest(context)
 	// fullyConnectedTest(layer, context)
-	// downSamplingTest(context)
+	// rotOptDownSamplingTest(context)
+	// mulParDownSamplingTest(context)
 	// reluTest(context)
 
 	// Convolution Tests
-	// rotOptConvTest(layer, context, 14)
-	// mulParConvTest(layer, context, 14)
-
-	//Server - Client Test
-	// rotKeyOrganize(layer, context)
-	// serverTest()
-	// algorTest()
+	// rotOptConvTest(layer, context, 2)
+	// mulParConvTest(layer, context, 2)
+	rotOptConvAccuracyTestForAllConv(layer, context)
+	mulParConvAccuracyTestForAllConv(layer, context)
 
 	//Hoist sum test
 	// hoistSumTest(context)
 
-	//General Key test
-	generalKeyTest(context)
+	//Server - Client RotKey Test
+	// HierarchyKeyTest(layer)
+	// generalKeyTest(context)
 
+	// Print Blue Print
+	// getBluePrint()
 }
