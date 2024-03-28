@@ -119,11 +119,9 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 
 		//Make filter
 		if mode == 1 {
-			//declare
-			var filter [][]float64
 
 			//Make filter
-			filter = mode1Filter(convMap[treeDepth])
+			filter := mode1Filter(convMap[treeDepth])
 
 			//Save filter
 			preCompFilter[treeDepth] = make([]*rlwe.Plaintext, len(filter))

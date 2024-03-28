@@ -1461,7 +1461,8 @@ func getBluePrint() {
 }
 func rotOptConvAccuracyTestForAllConv(layer int, context *customContext) {
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	maxConvDepth := []int{2, 4, 5, 4, 5, 4}
+	// maxConvDepth := []int{2, 4, 5, 4, 5, 4}
+	maxConvDepth := []int{2, 2, 2, 2, 2, 2}
 
 	startDepth := 2
 	for index := 0; index < len(convIDs); index++ {
@@ -1511,7 +1512,7 @@ func main() {
 	// rotOptConvTest(layer, context, 2)
 	// mulParConvTest(layer, context, 2)
 	rotOptConvAccuracyTestForAllConv(layer, context)
-	mulParConvAccuracyTestForAllConv(layer, context)
+	// mulParConvAccuracyTestForAllConv(layer, context)
 
 	//Hoist sum test
 	// hoistSumTest(context)

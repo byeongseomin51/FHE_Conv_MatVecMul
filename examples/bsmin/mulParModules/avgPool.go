@@ -29,7 +29,7 @@ func NewAvgPool(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters) *A
 		params:       params,
 	}
 }
-func (this AvgPool) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+func (obj AvgPool) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	var err error
 
 	rotateNums := []int{4, 8, 16, 128, 256, 512}
@@ -40,23 +40,23 @@ func (this AvgPool) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		84, 1092, 2100, 3108,
 	}
 
-	tempCipher := ckks.NewCiphertext(this.params, ctIn.Degree(), ctIn.Level())
+	tempCipher := ckks.NewCiphertext(obj.params, ctIn.Degree(), ctIn.Level())
 	for i := 0; i < 6; i++ {
-		this.Evaluator.Rotate(ctIn, rotateNums[i], tempCipher)
-		this.Evaluator.Add(tempCipher, ctIn, ctIn)
+		obj.Evaluator.Rotate(ctIn, rotateNums[i], tempCipher)
+		obj.Evaluator.Add(tempCipher, ctIn, ctIn)
 	}
 
 	for i := 0; i < 16; i++ {
 		if i == 0 {
-			ctOut, err = this.Evaluator.MulRelinNew(ctIn, this.preCompPlain[i])
+			ctOut, err = obj.Evaluator.MulRelinNew(ctIn, obj.preCompPlain[i])
 			ErrorPrint(err)
-			this.Evaluator.Rescale(ctOut, ctOut)
+			obj.Evaluator.Rescale(ctOut, ctOut)
 		} else {
-			tempRelin, err := this.Evaluator.MulRelinNew(ctIn, this.preCompPlain[i])
+			tempRelin, err := obj.Evaluator.MulRelinNew(ctIn, obj.preCompPlain[i])
 			ErrorPrint(err)
-			this.Evaluator.Rescale(tempRelin, tempCipher)
-			this.Evaluator.Rotate(tempCipher, linearizeNums[i], tempCipher)
-			this.Evaluator.Add(ctOut, tempCipher, ctOut)
+			obj.Evaluator.Rescale(tempRelin, tempCipher)
+			obj.Evaluator.Rotate(tempCipher, linearizeNums[i], tempCipher)
+			obj.Evaluator.Add(ctOut, tempCipher, ctOut)
 		}
 	}
 	return ctOut
