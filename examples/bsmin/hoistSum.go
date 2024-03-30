@@ -169,3 +169,46 @@ func min(a, b float64) float64 {
 		return b
 	}
 }
+
+func OptHoistSumSetting(params ckks.Parameters, encoder *ckks.Encoder, encryptor *rlwe.Encryptor, evaluator *ckks.Evaluator) {
+	iter := 100
+	fmt.Println("Optimized Hoist Sum Setting started! iter :", iter)
+	var inputFloat []float64
+	for i := 0; i < 32768; i++ {
+		j := i % 10
+		inputFloat = append(inputFloat, float64(j))
+	}
+
+	for level := 0; level <= params.MaxLevel(); level++ {
+		exPlain := ckks.NewPlaintext(params, level)
+		_ = encoder.Encode(inputFloat, exPlain)
+
+		// Encrypt to Ciphertext
+		ctIn, err := encryptor.EncryptNew(exPlain)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		start := time.Now()
+		for i := 0; i < iter; i++ {
+			evaluator.Rotate(ctIn, 1, ctIn)
+		}
+		end := time.Now()
+		time1 := TimeDurToFloatMiliSec(end.Sub(start) / time.Duration(iter))
+
+		rotIndex := []int{1, 2, 3}
+		start2 := time.Now()
+		for i := 0; i < iter; i++ {
+			evaluator.RotateHoistedNew(ctIn, rotIndex)
+		}
+		end2 := time.Now()
+		time2 := TimeDurToFloatMiliSec(end2.Sub(start2) / time.Duration(iter))
+
+		other := (time2 - time1) / 2.0
+		precomp := time1 - other
+
+		fmt.Printf("level : %v, precomp : %v, other : %v \n", level, precomp, other)
+
+	}
+
+}

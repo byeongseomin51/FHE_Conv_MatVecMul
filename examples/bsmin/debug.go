@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
@@ -33,7 +34,7 @@ func zeroFilter(input float64) float64 {
 }
 
 // count continuous zero and non-zero
-func count01num(arr []float64) {
+func Count01num(arr []float64) {
 	currentZero := true
 	if zeroFilter(arr[0]) != 0 {
 		currentZero = false
@@ -703,4 +704,17 @@ func GetFirstLocate(channel int, sameCopy int, k int) int {
 	locate := channel%k + channel%(k*k)/k*32 + channel/(k*k)*1024 + (ctLen/copyNum)*sameCopy
 
 	return locate
+}
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+func TimeDurToFloatSec(inputTime time.Duration) float64 {
+	return float64(inputTime.Nanoseconds()) / 1e9
+}
+
+func TimeDurToFloatMiliSec(inputTime time.Duration) float64 {
+	return float64(inputTime.Nanoseconds()) / 1e6
 }

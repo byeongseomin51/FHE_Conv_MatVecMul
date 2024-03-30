@@ -7,7 +7,7 @@ import (
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
 
-type ParFC struct {
+type FC struct {
 	Evaluator     *ckks.Evaluator
 	preCompBias   *rlwe.Plaintext
 	preCompWeight []*rlwe.Plaintext
@@ -15,7 +15,7 @@ type ParFC struct {
 	params        ckks.Parameters
 }
 
-func NewparFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, layer int) *ParFC {
+func NewFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, layer int) *ParFC {
 	// fmt.Println("FC : ", layer)
 	path := "mulParModules/precomputed/parFC/" + strconv.Itoa(layer) + "/"
 
@@ -35,7 +35,7 @@ func NewparFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, laye
 		params:        params,
 	}
 }
-func (obj ParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+func (obj FC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	ct_rot_index := []int{-8, -7, -6, -5, -4, -3, -2, -1, 0}
 	result_rot_index := []int{4096 + 9, 8192 + 18, 16384 + 36}
@@ -71,7 +71,7 @@ func (obj ParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	return ctOut
 }
 
-func ParFCRegister() []int {
+func FCRegister() []int {
 
 	rotateNums := []int{-9, -8, -7, -6, -5, -4, -3, -2, -1,
 		4096 + 9, 8192 + 18, 16384 + 36,

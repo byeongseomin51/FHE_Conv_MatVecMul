@@ -7,7 +7,6 @@ import (
 	"os"
 	"rotOptResnet/mulParModules"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -247,7 +246,8 @@ func fullyConnectedTest(layerNum int, cc *customContext) {
 	outputFloat := ciphertextToFloat(outputCt, cc)
 
 	// sample1DArray(outputFloat, 0, 32768)
-	sample1DArray(outputFloat, 0, 10)
+	// sample1DArray(outputFloat, 0, 10)
+	Count01num(outputFloat)
 }
 
 func rotOptDownSamplingTest(cc *customContext) {
@@ -264,45 +264,46 @@ func rotOptDownSamplingTest(cc *customContext) {
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
 
-	for level := 2; level <= cc.Params.MaxLevel(); level++ {
-		// Encryption
-		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
-		// /////////
-		// Timer start
-		startTime := time.Now()
+	// for level := 2; level <= cc.Params.MaxLevel(); level++ {
+	// Encryption
+	inputCt := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
+	// /////////
+	// Timer start
+	startTime := time.Now()
 
-		// AvgPooling Foward
-		ds16.Foward(inputCt)
+	// AvgPooling Foward
+	outputCt16 := ds16.Foward(inputCt)
 
-		// Timer end
-		endTime := time.Now()
+	// Timer end
+	endTime := time.Now()
 
-		// Print Elapsed Time
-		fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
-		// ////////
-		// Timer start
-		startTime = time.Now()
+	// Print Elapsed Time
+	fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
+	// ////////
+	// Timer start
+	startTime = time.Now()
 
-		// AvgPooling Foward
-		ds32.Foward(inputCt)
+	// AvgPooling Foward
+	outputCt32 := ds32.Foward(inputCt)
 
-		// Timer end
-		endTime = time.Now()
+	// Timer end
+	endTime = time.Now()
 
-		// Print Elapsed Time
-		fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
-	}
+	// Print Elapsed Time
+	fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
+	// }
 
 	// 	//Decryption
-	// 	outputFloat16 := ciphertextToFloat(outputCt16, cc)
-	// 	outputFloat32 := ciphertextToFloat(outputCt32, cc)
+	outputFloat16 := ciphertextToFloat(outputCt16, cc)
+	outputFloat32 := ciphertextToFloat(outputCt32, cc)
 
 	// //Test
-	// fmt.Println("==16==")
-	// count01num(outputFloat16)
-	// fmt.Println("\n==32==")
-	// count01num(outputFloat32)
+	fmt.Println("==16==")
+	Count01num(outputFloat16)
+	fmt.Println("\n==32==")
+	Count01num(outputFloat32)
 }
+
 func mulParDownSamplingTest(cc *customContext) {
 	//register
 	rot := mulParModules.MulParDSRegister()
@@ -317,45 +318,46 @@ func mulParDownSamplingTest(cc *customContext) {
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
 
-	for level := 1; level <= cc.Params.MaxLevel(); level++ {
-		fmt.Println("===", level, "===")
-		// Encryption
-		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
-		// /////////
-		// Timer start
-		startTime := time.Now()
+	// for level := 2; level <= cc.Params.MaxLevel(); level++ {
+	// Encryption
+	inputCt := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
+	// /////////
+	// Timer start
+	startTime := time.Now()
 
-		// AvgPooling Foward
-		ds16.Foward(inputCt)
+	// AvgPooling Foward
+	outputCt16 := ds16.Foward(inputCt)
 
-		// Timer end
-		endTime := time.Now()
+	// Timer end
+	endTime := time.Now()
 
-		// Print Elapsed Time
-		fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
-		// ////////
-		// Timer start
-		startTime = time.Now()
+	// Print Elapsed Time
+	fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
+	// ////////
+	// Timer start
+	startTime = time.Now()
 
-		// AvgPooling Foward
-		ds32.Foward(inputCt)
+	// AvgPooling Foward
+	outputCt32 := ds32.Foward(inputCt)
 
-		// Timer end
-		endTime = time.Now()
+	// Timer end
+	endTime = time.Now()
 
-		// Print Elapsed Time
-		fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
-	}
+	// Print Elapsed Time
+	fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
+	// }
 
 	// 	//Decryption
-	// 	outputFloat16 := ciphertextToFloat(outputCt16, cc)
-	// 	outputFloat32 := ciphertextToFloat(outputCt32, cc)
+	// ciphertextToFloat(outputCt16, cc)
+	// ciphertextToFloat(outputCt32, cc)
+	outputFloat16 := ciphertextToFloat(outputCt16, cc)
+	outputFloat32 := ciphertextToFloat(outputCt32, cc)
 
 	// //Test
-	// fmt.Println("==16==")
-	// count01num(outputFloat16)
-	// fmt.Println("\n==32==")
-	// count01num(outputFloat32)
+	fmt.Println("==16==")
+	Count01num(outputFloat16)
+	fmt.Println("\n==32==")
+	Count01num(outputFloat32)
 }
 
 // func mulParConvTest(layerNum int, cc *customContext, startCipherLevel int) {
@@ -502,86 +504,36 @@ func ClientMakeGaloisWithLevel(cc *customContext, rotIndexes [][]int) [][]*rlwe.
 	return galEls
 }
 
-func rotOptConvTest(layerNum int, cc *customContext, startCipherLevel int) {
+func rotOptConvTimeTest(layerNum int, cc *customContext) {
+	fmt.Println("RotOptConvTimeTest started!")
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
 	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
 	// convIDs := []string{"CONV3", "CONV4s2"}
-	convIDs := []string{"CONV2"}
-	maxDepth := []int{2}
+	convIDs := []string{"CONV3s2"}
+	// maxDepth := []int{3}
 	// maxDepth := []int{2, 4, 5, 4, 5, 4}
+	// maxDepth := []int{2, 3, 3, 3, 3, 3}
+	// maxDepth := []int{2, 2, 2, 2, 2, 2}
 	// maxDepth := []int{2, 2}
-	// maxDepth := []int{2}
+	maxDepth := []int{4}
 
-	iter := 1
+	//Set min depth
+	// startDepth := 2
+	startDepth := 4
 
-	startDepth := 2
+	//Set iter
+	iter := 5
+
+	// minStartCipherLevel := 2
+	minStartCipherLevel := 14
+	maxStartCipherLevel := cc.Params.MaxLevel()
 
 	for index := 0; index < len(convIDs); index++ {
 		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
 			convID := convIDs[index]
 
-			fmt.Printf("=== convID : %s, Depth : %v, iter : %v === \n", convID, depth, iter)
-
-			/////Real Convolution/////
-			cf := mulParModules.GetConvFeature(convID)
-			inputRandomVector := makeRandomData(cf.InputDataWidth, cf.InputDataHeight, cf.InputDataChannel)
-
-			flattenInputData := flatten(inputRandomVector)
-
-			if cf.InputDataChannel == 3 {
-				for i := 0; i < 1024; i++ {
-					flattenInputData = append(flattenInputData, 0)
-				}
-			}
-
-			flattenInputData = copyPaste(flattenInputData, cf.BeforeCopy)
-
-			if len(flattenInputData) != 32768 {
-				fmt.Println("You set the wrong parameter!")
-			}
-
-			flattenInputData = packingWithWidth(flattenInputData, cf.InputDataWidth, cf.K)
-
-			kernel_filePath := "mulParModules/precomputed/rotOptConv/kernelWeight/" + strconv.Itoa(layerNum) + "/layer" + strconv.Itoa(getConvTestNum(convID)[0]) + "/" + strconv.Itoa(getConvTestNum(convID)[1])
-			kernelFloat := kernelTxtToVector(kernel_filePath)
-			kernelFloat = unpacking(kernelFloat, cf.InputDataWidth, cf.K)
-
-			kernelSize := 16
-			channel := 16
-			kernelNum := 3
-			index := 0
-			// 커널 가중치를 저장할 4차원 배열을 초기화합니다.
-			kernelWeight := make([][][][]float64, kernelNum)
-			for kn := 0; kn < kernelNum; kn++ {
-				kernelWeight[kn] = make([][][]float64, channel)
-				for c := 0; c < channel; c++ {
-					kernelWeight[kn][c] = make([][]float64, kernelSize)
-					for ks1 := 0; ks1 < kernelSize; ks1++ {
-						kernelWeight[kn][c][ks1] = make([]float64, kernelSize)
-						for ks2 := 0; ks2 < kernelSize; ks2++ {
-							kernelWeight[kn][c][ks1][ks2] = kernelFloat[index]
-							index++
-						}
-					}
-				}
-			}
-
-			flattenOriginal := flatten(realConv(cf.InputDataWidth, cf.InputDataHeight, cf.InputDataChannel, cf.KernelSize, cf.KernelNumber, cf.Stride, inputRandomVector, kernelWeight))
-			flattenOriginal = copyPaste(flattenOriginal, cf.AfterCopy)
-			flattenOriginal = packingWithWidth(flattenOriginal, cf.InputDataWidth/cf.Stride, cf.K*cf.Stride)
-			if len(flattenOriginal) != 32768 {
-				fmt.Println("You have set wrong parameter!")
-			}
-
-			////CKKS convolution////
-			d := startCipherLevel
-			if depth > startCipherLevel {
-				d = depth
-			}
-			plain := ckks.NewPlaintext(cc.Params, d)
-			cc.Encoder.Encode(flattenInputData, plain)
-			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
 
 			//register
 			rots := mulParModules.RotOptConvRegister(convID, depth)
@@ -595,44 +547,91 @@ func rotOptConvTest(layerNum int, cc *customContext, startCipherLevel int) {
 			//make rotOptConv instance
 			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
-			var outputCt *rlwe.Ciphertext
+			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, minStartCipherLevel, maxStartCipherLevel, iter)
+
+			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+
+				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+				cc.Encoder.Encode(inputRandomVector, plain)
+				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
+				//Timer start
+				startTime := time.Now()
+
+				//Conv Foward
+				for i := 0; i < iter; i++ {
+					conv.Foward(inputCt)
+				}
+
+				//Timer end
+				endTime := time.Now()
+
+				//Print Elapsed Time
+				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
+				fmt.Printf("%v %v \n", startCipherLevel, time)
+				// fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
+				// fmt.Printf("%v) \n", endTime.Sub(startTime)/time.Duration(iter))
+			}
+		}
+	}
+}
+func mulParConvTimeTest(layerNum int, cc *customContext) {
+	fmt.Println("MulParConvTimeTest")
+	// mulParModules.MakeTxtMulParConvWeight()
+	// mulParModules.MakeTxtMulParConvFilter()
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	// convIDs := []string{"CONV3", "CONV4s2"}
+	// convIDs := []string{"CONV2"}
+
+	//Set iter
+	iter := 5
+
+	minStartCipherLevel := 2
+	maxStartCipherLevel := cc.Params.MaxLevel()
+
+	for index := 0; index < len(convIDs); index++ {
+		convID := convIDs[index]
+
+		inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
+
+		//register
+		rots := mulParModules.MulParConvRegister(convID)
+		// for _, r := range rots {
+		// 	fmt.Println(len(r), r)
+		// }
+
+		//rot register
+		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+
+		//make mulParConv instance
+		conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+
+		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
+
+		for startCipherLevel := minStartCipherLevel; startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+
+			plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+			cc.Encoder.Encode(inputRandomVector, plain)
+			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
 			//Timer start
-			// startTime := time.Now()
+			startTime := time.Now()
 
 			//Conv Foward
 			for i := 0; i < iter; i++ {
-				outputCt = conv.Foward(inputCt)
+				conv.Foward(inputCt)
 			}
 
-			// for level := 2; level <= cc.Params.MaxLevel(); level++ {
-			// 	plain := ckks.NewPlaintext(cc.Params, level)
-			// 	cc.Encoder.Encode(flattenInputData, plain)
-			// 	inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
-			// 	startTime := time.Now()
-			// 	outputCt = conv.Foward(inputCt)
-			// 	endTime := time.Now()
-
-			// 	fmt.Printf("( %d, %v) \n", level, endTime.Sub(startTime)/time.Duration(iter))
-			// }
-
 			//Timer end
-			// endTime := time.Now()
+			endTime := time.Now()
 
 			//Print Elapsed Time
+			time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
+			fmt.Printf("%v %v \n", startCipherLevel, time)
 			// fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
 			// fmt.Printf("%v) \n", endTime.Sub(startTime)/time.Duration(iter))
-
-			//Decryption
-			outputFloat := ciphertextToFloat(outputCt, cc)
-
-			fmt.Println(euclideanDistance(outputFloat, flattenOriginal))
-
-			floatToTxt("outputFloat", outputFloat)
-			floatToTxt("flattenOriginal", flattenOriginal)
-
-			// // sample1DArray(outputFloat, 0, 32768)
-			// sample1DArray(outputFloat, 0, 32768)
 		}
+
 	}
 }
 func rotationTimeTest(cc *customContext) {
@@ -1460,11 +1459,13 @@ func getBluePrint() {
 
 }
 func rotOptConvAccuracyTestForAllConv(layer int, context *customContext) {
-	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	// maxConvDepth := []int{2, 4, 5, 4, 5, 4}
-	maxConvDepth := []int{2, 2, 2, 2, 2, 2}
+	convIDs := []string{"CONV2"}
+	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
 
-	startDepth := 2
+	// maxConvDepth := []int{2, 4, 5, 4, 5, 4}
+	maxConvDepth := []int{4}
+
+	startDepth := 4
 	for index := 0; index < len(convIDs); index++ {
 		for convDepth := startDepth; convDepth < maxConvDepth[index]+1; convDepth++ { //원래 depth:=2
 			rotOptConvAccuracyTest(layer, context, convIDs[index], convDepth, convDepth)
@@ -1480,6 +1481,13 @@ func mulParConvAccuracyTestForAllConv(layer int, context *customContext) {
 		mulParConvAccuracyTest(layer, context, convIDs[index], 2)
 	}
 }
+func OptHoistSumSettingTest(cc *customContext) {
+	rots := []int{1, 2, 3, 4, 5, 6, 7, 8}
+	newEvaluator := rotIndexToGaloisEl(rots, cc.Params, cc.Kgen, cc.Sk)
+
+	OptHoistSumSetting(cc.Params, cc.Encoder, cc.EncryptorSk, newEvaluator)
+}
+
 func main() {
 
 	//CKKS settings
@@ -1503,18 +1511,19 @@ func main() {
 
 	// resnet operation tests
 	// avgPoolTest(context)
-	// fullyConnectedTest(layer, context)
+	fullyConnectedTest(layer, context)
 	// rotOptDownSamplingTest(context)
 	// mulParDownSamplingTest(context)
 	// reluTest(context)
 
 	// Convolution Tests
-	// rotOptConvTest(layer, context, 2)
-	// mulParConvTest(layer, context, 2)
-	rotOptConvAccuracyTestForAllConv(layer, context)
+	// rotOptConvAccuracyTestForAllConv(layer, context)
 	// mulParConvAccuracyTestForAllConv(layer, context)
+	// rotOptConvTimeTest(layer, context)
+	// mulParConvTimeTest(layer, context)
 
 	//Hoist sum test
+	// OptHoistSumSettingTest(context)
 	// hoistSumTest(context)
 
 	//Server - Client RotKey Test
@@ -1523,4 +1532,5 @@ func main() {
 
 	// Print Blue Print
 	// getBluePrint()
+
 }

@@ -83,7 +83,7 @@ func GeneralFilter(channel int, parNum int, k int) []float64 {
 		for w := 0; w < 32; w++ {
 			if w%k == 0 && h%k == 0 {
 				result[w+h*32] = 1
-				fmt.Println(w + h*32)
+				// fmt.Println(w + h*32)
 			}
 		}
 	}
@@ -91,12 +91,12 @@ func GeneralFilter(channel int, parNum int, k int) []float64 {
 	// 그 채널을 channel 만큼 돌림.
 	channelRot := -(1024*(channel/(k*k)) + 32*(channel%(k*k)/k) + (channel % (k * k) % k))
 	result = PlainRot(result, channelRot)
-	fmt.Println("c : ", channelRot)
+	// fmt.Println("c : ", channelRot)
 
 	// 그걸 또 parNum 만큼 돌림.
 	parRot := -(32768 / allPar * parNum)
 	result = PlainRot(result, parRot)
-	fmt.Println("p : ", parRot)
+	// fmt.Println("p : ", parRot)
 	return result
 }
 
@@ -1022,6 +1022,28 @@ func multVec(A []float64, B []float64) []float64 {
 	var result []float64
 	for x := 0; x < len(A); x++ {
 		result = append(result, A[x]*B[x])
+	}
+	return result
+}
+
+func addVec(A []float64, B []float64) []float64 {
+	var result []float64
+	for x := 0; x < len(A); x++ {
+		result = append(result, A[x]+B[x])
+	}
+	return result
+}
+
+// OR operation for A and B
+func AndVec(A []float64, B []float64) []float64 {
+	var result []float64
+	for x := 0; x < len(A); x++ {
+		if A[x] == 1 || B[x] == 1 {
+			result = append(result, 1)
+		} else {
+			result = append(result, 0)
+		}
+
 	}
 	return result
 }

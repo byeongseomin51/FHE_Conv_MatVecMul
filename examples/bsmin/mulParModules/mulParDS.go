@@ -1,75 +1,97 @@
 package mulParModules
 
 import (
-	"strconv"
+	"fmt"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
 
 type MulParDS struct {
-	Evaluator     *ckks.Evaluator
-	preCompStride *rlwe.Plaintext
-	preCompFilter []*rlwe.Plaintext
-	params        ckks.Parameters
-	planes        int
-	rotateNums    []int
+	Evaluator      *ckks.Evaluator
+	preCompFilters []*rlwe.Plaintext
+	params         ckks.Parameters
+	planes         int
+	rotChannel     []int
+	rotCopy        []int
 }
 
 func NewMulParDS(planes int, ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters) *MulParDS {
 
 	//declare
-	preCompFilters := make([]*rlwe.Plaintext, 4)
-
+	preCompFilters := make([]*rlwe.Plaintext, 16)
+	rotChannel := make([]int, 16)
 	//make plaintext
-	path := "mulParModules/precomputed/rotOptDS/" + strconv.Itoa(planes) + "/"
-	preCompStrideFilter := txtToPlain(ec, path+"stride.txt", params)
-	for i := 0; i < 4; i++ {
-		preCompFilters[i] = txtToPlain(ec, path+"filter"+strconv.Itoa(i)+".txt", params)
+	if planes == 16 {
+		for channel := 0; channel < 16; channel++ {
+			preCompFilters[channel] = floatToPlain(multVec(StrideFilter(1), GeneralFilter((channel%8)*4, channel/8, 2)), ec, params)
+
+			originalLocate := 1024 * channel
+			resultLocate := 2048 + (channel/4)*1024 + (channel%4)/2*32 + channel%4%2
+			rotChannel[channel] = originalLocate - resultLocate
+		}
+	} else if planes == 32 { // 0 4 16 20 32 36 48 52
+		for channel := 0; channel < 16; channel++ {
+			f := AndVec(GeneralFilter((channel%8)%2*4+(channel%8)/2*16, channel/8, 4), GeneralFilter((channel%8)%2*4+(channel%8)/2*16+1, channel/8, 4))
+			preCompFilters[channel] = floatToPlain(multVec(StrideFilter(2), f), ec, params)
+			originalLocate := 1024*(channel/2) + 32*(channel%2)
+			resultLocate := 1024 + (channel/8)*1024 + (channel%8)/2*32 + (channel%8%2)*2
+			rotChannel[channel] = originalLocate - resultLocate
+		}
 	}
 
-	rotateNums := []int{}
+	//For copy
+	rotCopy := make([]int, 0)
+
 	if planes == 16 {
-		rotateNums = []int{
-			1024 - 1, 2048 - 32, //filter 전
-			-2048, 1024, 4096, 1024 * 7, //filter 후
-			8192, // 복사
-		}
+		rotCopy = []int{-8192, -16384}
 
 	} else if planes == 32 {
-		rotateNums = []int{
-			32 - 2, 2048 - 64, //filter 전
-			-1024, -32, 2048, 1024*3 - 32, //filter 후
-			4096, //복사
-		}
-
+		rotCopy = []int{-4096, -8192, -16384}
 	}
+
+	fmt.Println(rotChannel)
+	fmt.Println(rotCopy)
 	return &MulParDS{
-		Evaluator:     ev,
-		preCompStride: preCompStrideFilter,
-		preCompFilter: preCompFilters,
-		params:        params,
-		planes:        planes,
-		rotateNums:    rotateNums,
+		Evaluator:      ev,
+		preCompFilters: preCompFilters,
+		params:         params,
+		planes:         planes,
+		rotChannel:     rotChannel,
+		rotCopy:        rotCopy,
 	}
 }
 func (obj MulParDS) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+	for i := 0; i < 16; i++ {
+		temp, err := obj.Evaluator.MulNew(ctIn, obj.preCompFilters[i])
+		ErrorPrint(err)
+		obj.Evaluator.Rescale(temp, temp)
 
-	forNum := 0
-	if obj.planes == 16 {
-		forNum = 18
-	} else if obj.planes == 32 {
-		forNum = 19
+		if i == 0 {
+			ctOut, err = obj.Evaluator.RotateNew(temp, obj.rotChannel[i])
+			ErrorPrint(err)
+		} else {
+			temp2, err := obj.Evaluator.RotateNew(temp, obj.rotChannel[i])
+			ErrorPrint(err)
+			obj.Evaluator.Add(ctOut, temp2, ctOut)
+		}
+
 	}
 
-	for i := 0; i < forNum; i++ {
-		temp, _ := obj.Evaluator.MulNew(ctIn, obj.preCompStride)
-		obj.Evaluator.Rescale(temp, temp)
-		if i == 0 {
-			ctOut, _ = obj.Evaluator.RotateNew(temp, 4096)
-		} else {
-			temp2, _ := obj.Evaluator.RotateNew(temp, 4096)
-			obj.Evaluator.Add(ctOut, temp2, ctOut)
+	if obj.planes == 16 {
+		for i := 0; i < 2; i++ {
+			temp, err := obj.Evaluator.RotateNew(ctOut, obj.rotCopy[i])
+			ErrorPrint(err)
+			err = obj.Evaluator.Add(ctOut, temp, ctOut)
+			ErrorPrint(err)
+		}
+	}
+	if obj.planes == 32 {
+		for i := 0; i < 3; i++ {
+			temp, err := obj.Evaluator.RotateNew(ctOut, obj.rotCopy[i])
+			ErrorPrint(err)
+			err = obj.Evaluator.Add(ctOut, temp, ctOut)
+			ErrorPrint(err)
 		}
 	}
 	return ctOut
@@ -77,84 +99,55 @@ func (obj MulParDS) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 func MulParDSRegister() []int {
 
-	rotateNums := []int{
-		//planes==16
-		1024 - 1, 2048 - 32, //filter 전
-		-2048, 1024, 4096, 1024 * 7, //filter 후
-		8192, // 복사
-
-		//planes==32
-		32 - 2, 2048 - 64, //filter 전
-		-1024, -32, 2048, 1024*3 - 32, //filter 후
-		4096, //복사
-	}
+	rotateNums := []int{-2048, -1025, -32, 991, 1024, 2047, 3040, 4063, 4096, 5119, 6112, 7135, 7168, 8191, 9184, 10207,
+		-8192, -16384,
+		-1024, -994, -32, -2, 960, 990, 1952, 1982, 2048, 2078, 3040, 3070, 4032, 4062, 5024, 5054,
+		-4096, -8192, -16384}
 
 	return rotateNums
 
 }
 
-func MakeTxtMulParDS() {
-	path := "mulParModules/precomputed/rotOptDS/"
-
-	// declare stride filter
-	stride16 := make([]float64, 32768)
-	stride32 := make([]float64, 32768)
-
-	// make stride filter
-	k := 2
-	for index := 0; index < 32768; index++ {
-		if index%k < (k/2) && ((index/32)%k < (k / 2)) {
-			stride16[index] = 1
-		}
+// count continuous zero and non-zero
+func Count01num(arr []float64) {
+	currentZero := true
+	if zeroFilter(arr[0]) != 0 {
+		currentZero = false
 	}
-
-	k = 4
-	for index := 0; index < 32768; index++ {
-		if index%k < (k/2) && ((index/32)%k < (k / 2)) {
-			stride32[index] = 1
-		}
-	}
-
-	// save stride filter
-	floatToTxt(path+"16/stride.txt", stride16)
-	floatToTxt(path+"32/stride.txt", stride32)
-
-	// declare valid filter
-	filter16 := make([][]float64, 4)
-	for i := range filter16 {
-		filter16[i] = make([]float64, 32768)
-	}
-
-	filter32 := make([][]float64, 4)
-	for i := range filter32 {
-		filter32[i] = make([]float64, 32768)
-	}
-
-	// make stride filter
-	for i := 0; i < 4; i++ {
-		for index := 0; index < 32768; index++ {
-			if ((index % 16384) >= 4096*i) && ((index % 16384) < 4096*i+1024) {
-				filter16[i][index] = 1
+	count := 0
+	for i := 0; i < 32768; i++ {
+		cur := zeroFilter(arr[i])
+		if currentZero && (cur == 0.0) {
+			count++
+		} else if (currentZero == false) && (cur != 0.0) {
+			count++
+		} else {
+			if currentZero { //0이였었는데 1이 나옴
+				currentZero = false
+				fmt.Printf("0 : %v\n", count)
+				count = 1
+			} else { //1이였었는데 0이 나옴
+				currentZero = true
+				fmt.Printf("1 : %v\n", count)
+				count = 1
 			}
 		}
 	}
-
-	for i := 0; i < 4; i++ {
-		for index := 0; index < 32768; index++ {
-			start := (i%2)*1024 + (i/2)*4096
-			if ((index % 8192) >= start) && ((index % 8192) < start+1024) && (((index%8192)/32)%2 == 0) {
-				filter32[i][index] = 1
-			}
-		}
+	if currentZero { //0이였었는데 1이 나옴
+		currentZero = false
+		fmt.Printf("0 : %v\n", count)
+		count = 0
+	} else { //1이였었는데 0이 나옴
+		currentZero = true
+		fmt.Printf("1 : %v\n", count)
+		count = 0
 	}
 
-	// save valid filter
-	for i := 0; i < 4; i++ {
-		floatToTxt(path+"16/filter"+strconv.Itoa(i)+".txt", filter16[i])
+}
+func zeroFilter(input float64) float64 {
+	if input > 0.00001 || input < -0.00001 {
+		return input
+	} else {
+		return 0
 	}
-
-	for i := 0; i < 4; i++ {
-		floatToTxt(path+"32/filter"+strconv.Itoa(i)+".txt", filter32[i])
-	}
-
 }
