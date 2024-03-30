@@ -214,7 +214,9 @@ func avgPoolTest(cc *customContext) {
 
 }
 
-func fullyConnectedTest(layerNum int, cc *customContext) {
+func parfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
+	startLevel := 2
+	endLevel := cc.Params.MaxLevel()
 	//register
 	rot := mulParModules.ParFCRegister()
 
@@ -225,29 +227,90 @@ func fullyConnectedTest(layerNum int, cc *customContext) {
 	fc := mulParModules.NewparFC(newEvaluator, cc.Encoder, cc.Params, layerNum)
 
 	//Make input float data
-	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+	temp := txtToFloat("true_logs/AvgPoolEnd.txt")
+	trueInputFloat := make([]float64, 32768)
+	for i := 0; i < len(temp); i++ {
+		for par := 0; par < 8; par++ {
+			trueInputFloat[i+4096*par] = temp[i]
+		}
+	}
 
-	//Encryption
-	inputCt := floatToCiphertext(inputFloat, cc.Params, cc.Encoder, cc.EncryptorSk)
+	//Make output float data
+	trueOutputFloat := txtToFloat("true_logs/FcEnd.txt")
 
-	//Timer start
-	startTime := time.Now()
+	var outputCt *rlwe.Ciphertext
+	for level := startLevel; level <= endLevel; level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(trueInputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
 
-	//AvgPooling Foward
-	outputCt := fc.Foward(inputCt)
+		// Timer start
+		startTime := time.Now()
 
-	//Timer end
-	endTime := time.Now()
+		// AvgPooling Foward
+		outputCt = fc.Foward(inputCt)
 
-	//Print Elapsed Time
-	fmt.Printf("Time : %v \n", endTime.Sub(startTime))
+		// Timer end
+		endTime := time.Now()
+
+		// Print Elapsed Time
+		fmt.Printf("%v %v \n", level, endTime.Sub(startTime))
+
+	}
 
 	//Decryption
 	outputFloat := ciphertextToFloat(outputCt, cc)
 
-	// sample1DArray(outputFloat, 0, 32768)
-	// sample1DArray(outputFloat, 0, 10)
-	Count01num(outputFloat)
+	fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
+}
+
+func mulParfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
+	startLevel := 2
+	endLevel := cc.Params.MaxLevel()
+	//register
+	rot := mulParModules.MulParFCRegister()
+
+	//rot register
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+
+	//make avgPooling instance
+	fc := mulParModules.NewmulParFC(newEvaluator, cc.Encoder, cc.Params, layerNum)
+
+	//Make input float data
+	temp := txtToFloat("true_logs/AvgPoolEnd.txt")
+	trueInputFloat := make([]float64, 32768)
+	for i := 0; i < len(temp); i++ {
+		for par := 0; par < 8; par++ {
+			trueInputFloat[i+4096*par] = temp[i]
+		}
+	}
+
+	//Make output float data
+	trueOutputFloat := txtToFloat("true_logs/FcEnd.txt")
+
+	var outputCt *rlwe.Ciphertext
+	for level := startLevel; level <= endLevel; level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(trueInputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+		// Timer start
+		startTime := time.Now()
+
+		// AvgPooling Foward
+		outputCt = fc.Foward(inputCt)
+
+		// Timer end
+		endTime := time.Now()
+
+		// Print Elapsed Time
+		fmt.Printf("%v %v \n", level, endTime.Sub(startTime))
+
+	}
+
+	//Decryption
+	outputFloat := ciphertextToFloat(outputCt, cc)
+
+	fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
+
 }
 
 func rotOptDownSamplingTest(cc *customContext) {
@@ -1511,7 +1574,8 @@ func main() {
 
 	// resnet operation tests
 	// avgPoolTest(context)
-	fullyConnectedTest(layer, context)
+	parfullyConnectedAccuracyTest(layer, context)
+	mulParfullyConnectedAccuracyTest(layer, context)
 	// rotOptDownSamplingTest(context)
 	// mulParDownSamplingTest(context)
 	// reluTest(context)

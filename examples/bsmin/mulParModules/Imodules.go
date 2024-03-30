@@ -74,6 +74,49 @@ func txtToPlain(encoder *ckks.Encoder, txtPath string, params ckks.Parameters) *
 
 	return exPlain
 }
+func txtToFloat(txtPath string) []float64 {
+	// 파일 열기
+	file, err := os.Open(txtPath)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+	defer file.Close()
+
+	var floats []float64
+
+	// 파일 스캐너 생성
+	scanner := bufio.NewScanner(file)
+
+	// 각 줄 읽어오기
+	for scanner.Scan() {
+		// 문자열을 float64로 변환
+		floatVal, err := strconv.ParseFloat(scanner.Text(), 64)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return nil
+		}
+
+		// 슬라이스에 추가
+		floats = append(floats, floatVal)
+	}
+
+	// 스캔 중 에러 확인
+	if err := scanner.Err(); err != nil {
+		fmt.Println("Error:", err)
+		return nil
+	}
+
+	//Make longer
+	if len(floats) != 32768 {
+		fmt.Println(txtPath, " : Txt is short! 0 appended")
+		for i := len(floats); i < 32768; i++ {
+			floats = append(floats, 0)
+		}
+	}
+
+	return floats
+}
 func floatToPlain(floats []float64, encoder *ckks.Encoder, params ckks.Parameters) *rlwe.Plaintext {
 
 	// encode to Plaintext

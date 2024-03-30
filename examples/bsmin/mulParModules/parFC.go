@@ -41,26 +41,25 @@ func (obj ParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	result_rot_index := []int{4096 + 9, 8192 + 18, 16384 + 36}
 
 	//Make initializer
-	ctOut, _ = obj.Evaluator.RotateNew(ctIn, -9)
-	relinTemp, err := obj.Evaluator.MulRelinNew(ctOut, obj.preCompWeight[9])
+	tempRelin, _ := obj.Evaluator.RotateNew(ctIn, -9)
+	ctOut, err := obj.Evaluator.MulNew(tempRelin, obj.preCompWeight[9])
 	ErrorPrint(err)
-	obj.Evaluator.Rescale(relinTemp, ctOut)
 
 	tempCipher := ckks.NewCiphertext(obj.params, ctIn.Degree()+obj.preCompWeight[0].Degree(), ctIn.Level())
 	for i := 0; i < 9; i++ {
 		if ct_rot_index[i] == 0 {
 			relinTemp, err := obj.Evaluator.MulRelinNew(ctIn, obj.preCompWeight[i])
 			ErrorPrint(err)
-			obj.Evaluator.Rescale(relinTemp, relinTemp)
 			obj.Evaluator.Add(ctOut, relinTemp, ctOut)
 		} else {
 			obj.Evaluator.Rotate(ctIn, ct_rot_index[i], tempCipher)
 			relinTemp, err := obj.Evaluator.MulRelinNew(tempCipher, obj.preCompWeight[i])
 			ErrorPrint(err)
-			obj.Evaluator.Rescale(relinTemp, relinTemp)
 			obj.Evaluator.Add(ctOut, relinTemp, ctOut)
 		}
 	}
+
+	obj.Evaluator.Rescale(ctOut, ctOut)
 
 	for i := 0; i < 3; i++ {
 		obj.Evaluator.Rotate(ctOut, result_rot_index[i], tempCipher)
