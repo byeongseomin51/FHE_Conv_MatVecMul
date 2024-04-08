@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"rotOptResnet/mulParModules"
 	"sort"
@@ -32,57 +33,6 @@ type customContext struct {
 	Evaluator   *ckks.Evaluator
 }
 
-// ///////////////////////////////
-// func txtToPlain(txtPath string) (*rlwe.Plaintext, error) {
-// 	// 파일 열기
-// 	file, err := os.Open(txtPath)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer file.Close()
-
-// 	var floats []float64
-
-// 	// 파일 스캐너 생성
-// 	scanner := bufio.NewScanner(file)
-
-// 	// 각 줄 읽어오기
-// 	for scanner.Scan() {
-// 		// 문자열을 float64로 변환
-// 		floatVal, err := strconv.ParseFloat(scanner.Text(), 64)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		// 슬라이스에 추가
-// 		floats = append(floats, floatVal)
-// 	}
-
-// 	// 스캔 중 에러 확인
-// 	if err := scanner.Err(); err != nil {
-// 		return nil, err
-// 	}
-
-// 	// convert to complex
-// 	complexInput := convertFloatToComplex(floats)
-
-// 	// encode to Plaintext
-// 	exPlain := encoder.EncodeNew(complexInput, params.MaxLevel(), params.DefaultScale(), params.LogSlots())
-
-// 	return exPlain, nil
-// }
-
-// func combinePlainMap(originalMap map[string]*rlwe.Plaintext, newList []string) {
-// 	for _, path := range newList {
-// 		plain, err := txtToPlain(path)
-// 		if err != nil {
-// 			fmt.Println("Error:", err)
-// 			return
-// 		}
-
-//			originalMap[path] = plain
-//		}
-//	}
 func floatToCiphertext(floatInput []float64, params ckks.Parameters, encoder *ckks.Encoder, encryptor *rlwe.Encryptor) *rlwe.Ciphertext {
 
 	// encode to Plaintext
@@ -129,55 +79,6 @@ func printCipherSample(message string, cipherInput *rlwe.Ciphertext, cc *customC
 	msgSample1DArray(message, floatOutput, 0, 10)
 }
 
-// func basicTest() {
-
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	////////////Basic Operation//////////////
-// 	// Generate a random float input
-// 	floatInput := makeRandomFloat(params.Slots())
-
-// 	// print input
-// 	fmt.Println("Input : ")
-// 	sample1DArray(floatInput, 0, 10)
-
-// 	// convert to complex
-// 	complexInput := convertFloatToComplex(floatInput)
-
-// 	// encode to Plaintext
-// 	exPlain := encoder.EncodeNew(complexInput, params.MaxLevel(), params.DefaultScale(), params.LogSlots())
-
-// 	// Encrypt to Ciphertext
-// 	exCipher := encryptor.EncryptNew(exPlain)
-
-// 	// Rotate Ciphertext
-// 	printCipherSample("exCipher : ", exCipher, 0, 10)
-// 	exCipher2 := evaluator.RotateNew(exCipher, -2)
-// 	printCipherSample("exCipher2(rot -2) : ", exCipher2, 0, 10)
-// 	exCipher2 = evaluator.AddNew(exPlain, exCipher2)
-// 	printCipherSample("exCipher2(sum) : ", exCipher2, 0, 10)
-
-// 	// Decrypt to Plaintext
-// 	exPlain2 := decryptor.DecryptNew(exCipher)
-
-// 	// Decode to []complex128
-// 	result := encoder.Decode(exPlain2, params.LogSlots())
-
-// 	// convert to float
-// 	floatOutput := convertComplexToFloat(result)
-
-// 	//print float output
-// 	fmt.Println("Output : ")
-// 	sample1DArray(floatOutput, 0, 10)
-// 	//sample1DComplex(result, 0, 10)
-
-// 	// eucldiean distance
-// 	ed := euclideanDistance(floatOutput, floatInput)
-// 	fmt.Println("Euclidean Distance : ", ed)
-
-// }
 func avgPoolTest(cc *customContext) {
 	//register
 	rot := mulParModules.AvgPoolRegister()
@@ -253,7 +154,7 @@ func parfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
 		endTime := time.Now()
 
 		// Print Elapsed Time
-		fmt.Printf("%v %v \n", level, endTime.Sub(startTime))
+		fmt.Printf("%v %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
 
 	}
 
@@ -302,7 +203,7 @@ func mulParfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
 		endTime := time.Now()
 
 		// Print Elapsed Time
-		fmt.Printf("%v %v \n", level, endTime.Sub(startTime))
+		fmt.Printf("%v %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
 
 	}
 
@@ -326,35 +227,36 @@ func rotOptDownSamplingTest(cc *customContext) {
 
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+	var outputCt16 *rlwe.Ciphertext
+	var outputCt32 *rlwe.Ciphertext
+	for level := 2; level <= cc.Params.MaxLevel(); level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+		// /////////
+		// Timer start
+		startTime := time.Now()
 
-	// for level := 2; level <= cc.Params.MaxLevel(); level++ {
-	// Encryption
-	inputCt := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
-	// /////////
-	// Timer start
-	startTime := time.Now()
+		// AvgPooling Foward
+		outputCt16 = ds16.Foward(inputCt)
 
-	// AvgPooling Foward
-	outputCt16 := ds16.Foward(inputCt)
+		// Timer end
+		endTime := time.Now()
 
-	// Timer end
-	endTime := time.Now()
+		// Print Elapsed Time
+		// fmt.Printf("%v Time(16) : %v \n", level,TimeDurToFloatSec(endTime.Sub(startTime)))
+		// ////////
+		// Timer start
+		startTime = time.Now()
 
-	// Print Elapsed Time
-	fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
-	// ////////
-	// Timer start
-	startTime = time.Now()
+		// AvgPooling Foward
+		outputCt32 = ds32.Foward(inputCt)
 
-	// AvgPooling Foward
-	outputCt32 := ds32.Foward(inputCt)
+		// Timer end
+		endTime = time.Now()
 
-	// Timer end
-	endTime = time.Now()
-
-	// Print Elapsed Time
-	fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
-	// }
+		// Print Elapsed Time
+		fmt.Printf("%v Time(32) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+	}
 
 	// 	//Decryption
 	outputFloat16 := ciphertextToFloat(outputCt16, cc)
@@ -380,35 +282,36 @@ func mulParDownSamplingTest(cc *customContext) {
 
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+	var outputCt16 *rlwe.Ciphertext
+	var outputCt32 *rlwe.Ciphertext
+	for level := 2; level <= cc.Params.MaxLevel(); level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+		// /////////
+		// Timer start
+		startTime := time.Now()
 
-	// for level := 2; level <= cc.Params.MaxLevel(); level++ {
-	// Encryption
-	inputCt := floatToCiphertextLevel(inputFloat, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
-	// /////////
-	// Timer start
-	startTime := time.Now()
+		// AvgPooling Foward
+		outputCt16 = ds16.Foward(inputCt)
 
-	// AvgPooling Foward
-	outputCt16 := ds16.Foward(inputCt)
+		// Timer end
+		endTime := time.Now()
 
-	// Timer end
-	endTime := time.Now()
+		// Print Elapsed Time
+		fmt.Printf("%v Time(16) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		// ////////
+		// Timer start
+		startTime = time.Now()
 
-	// Print Elapsed Time
-	fmt.Printf("Time(16) : %v \n", endTime.Sub(startTime))
-	// ////////
-	// Timer start
-	startTime = time.Now()
+		// AvgPooling Foward
+		outputCt32 = ds32.Foward(inputCt)
 
-	// AvgPooling Foward
-	outputCt32 := ds32.Foward(inputCt)
+		// Timer end
+		endTime = time.Now()
 
-	// Timer end
-	endTime = time.Now()
-
-	// Print Elapsed Time
-	fmt.Printf("Time(32) : %v \n", endTime.Sub(startTime))
-	// }
+		// Print Elapsed Time
+		// fmt.Printf("%v Time(32) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+	}
 
 	// 	//Decryption
 	// ciphertextToFloat(outputCt16, cc)
@@ -569,27 +472,39 @@ func ClientMakeGaloisWithLevel(cc *customContext, rotIndexes [][]int) [][]*rlwe.
 
 func rotOptConvTimeTest(layerNum int, cc *customContext) {
 	fmt.Println("RotOptConvTimeTest started!")
+
+	//For log
+	currentTime := time.Now()
+	logFileName := "RotOptLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt"
+	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	log.SetFlags(0)
+
 	// mulParModules.MakeTxtRotOptConvWeight()
 	// mulParModules.MakeTxtRotOptConvFilter()
 	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	// convIDs := []string{"CONV3", "CONV4s2"}
-	convIDs := []string{"CONV3s2"}
+	convIDs := []string{"CONV4s2", "CONV4"}
+	// convIDs := []string{"CONV4"}
 	// maxDepth := []int{3}
-	// maxDepth := []int{2, 4, 5, 4, 5, 4}
+	// maxDepth := []int{4}
 	// maxDepth := []int{2, 3, 3, 3, 3, 3}
 	// maxDepth := []int{2, 2, 2, 2, 2, 2}
-	// maxDepth := []int{2, 2}
-	maxDepth := []int{4}
+	maxDepth := []int{2, 2}
+	// maxDepth := []int{4}
 
 	//Set min depth
 	// startDepth := 2
-	startDepth := 4
+	startDepth := 2
 
 	//Set iter
-	iter := 5
+	iter := 10
 
 	// minStartCipherLevel := 2
-	minStartCipherLevel := 14
+	minStartCipherLevel := 2
 	maxStartCipherLevel := cc.Params.MaxLevel()
 
 	for index := 0; index < len(convIDs); index++ {
@@ -610,7 +525,8 @@ func rotOptConvTimeTest(layerNum int, cc *customContext) {
 			//make rotOptConv instance
 			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
-			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, minStartCipherLevel, maxStartCipherLevel, iter)
+			// fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, minStartCipherLevel, maxStartCipherLevel, iter)
+			log.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, minStartCipherLevel, maxStartCipherLevel, iter)
 
 			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
 
@@ -631,7 +547,8 @@ func rotOptConvTimeTest(layerNum int, cc *customContext) {
 
 				//Print Elapsed Time
 				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
-				fmt.Printf("%v %v \n", startCipherLevel, time)
+				// fmt.Printf("%v %v \n", startCipherLevel, time)
+				log.Printf("%v %v \n", startCipherLevel, time)
 				// fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
 				// fmt.Printf("%v) \n", endTime.Sub(startTime)/time.Duration(iter))
 			}
@@ -646,8 +563,19 @@ func mulParConvTimeTest(layerNum int, cc *customContext) {
 	// convIDs := []string{"CONV3", "CONV4s2"}
 	// convIDs := []string{"CONV2"}
 
+	//For log
+	currentTime := time.Now()
+	logFileName := "MulParLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt"
+	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	log.SetFlags(0)
+
 	//Set iter
-	iter := 5
+	iter := 10
 
 	minStartCipherLevel := 2
 	maxStartCipherLevel := cc.Params.MaxLevel()
@@ -669,7 +597,8 @@ func mulParConvTimeTest(layerNum int, cc *customContext) {
 		//make mulParConv instance
 		conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Decryptor, cc.Params, layerNum, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
-		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
+		log.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
+		// fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
 
 		for startCipherLevel := minStartCipherLevel; startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
 
@@ -690,11 +619,29 @@ func mulParConvTimeTest(layerNum int, cc *customContext) {
 
 			//Print Elapsed Time
 			time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
-			fmt.Printf("%v %v \n", startCipherLevel, time)
+			log.Printf("%v %v \n", startCipherLevel, time)
+			// fmt.Printf("%v %v \n", startCipherLevel, time)
+
 			// fmt.Printf("Time : %v \n", endTime.Sub(startTime)/time.Duration(iter))
 			// fmt.Printf("%v) \n", endTime.Sub(startTime)/time.Duration(iter))
 		}
 
+	}
+}
+func mulParConvRotKeyTest(layerNum int) {
+	fmt.Println("MulParConvTimeTest")
+	// mulParModules.MakeTxtMulParConvWeight()
+	// mulParModules.MakeTxtMulParConvFilter()
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	// convIDs := []string{"CONV3", "CONV4s2"}
+	// convIDs := []string{"CONV2"}
+
+	for index := 0; index < len(convIDs); index++ {
+		//register
+		rots := mulParModules.MulParConvRegister(convIDs[index])
+		for _, i := range rots {
+			fmt.Println(len(i))
+		}
 	}
 }
 func rotationTimeTest(cc *customContext) {
@@ -1585,7 +1532,9 @@ func main() {
 	// mulParConvAccuracyTestForAllConv(layer, context)
 	// rotOptConvTimeTest(layer, context)
 	// mulParConvTimeTest(layer, context)
+	// mulParConvTimeTest(layer, context)
 
+	// mulParConvRotKeyTest(layer)
 	//Hoist sum test
 	// OptHoistSumSettingTest(context)
 	// hoistSumTest(context)

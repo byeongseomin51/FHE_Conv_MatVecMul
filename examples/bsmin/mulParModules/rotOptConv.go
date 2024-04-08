@@ -131,8 +131,7 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, par
 	}
 }
 
-//for debugging
-
+// for debugging
 func (obj RotOptConv) printCipher(fileName string, ctIn *rlwe.Ciphertext) {
 
 	plainIn := obj.decryptor.DecryptNew(ctIn)

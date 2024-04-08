@@ -12,7 +12,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 		//=================Choose MAP=================//
 		//2 depth, 14 rotation
 		if depth == 2 {
-			convMap = [][]int{ //1499ms
+			convMap = [][]int{ //1499ms //MinimumTime
 				{4}, //tree length
 				{0, 2048},
 				{2, 2, 1024},
@@ -34,22 +34,22 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 		//=================Choose MAP=================//
 		if depth == 2 { //5089ms
 			//2depth 36 rotations
-			convMap = [][]int{ //3.706046844
-				{3}, //tree length
-				{2, 8, 1024, 2048, 4096},
-				{3, 4, 8192, 8192, 16384},
-				{0, -16384},
-			}
-			// convMap = [][]int{ //4.17558575
-			// 	{4}, //tree length
-			// 	{0, 8192},
+			// convMap = [][]int{ //3.706046844 //MinimumTime
+			// 	{3}, //tree length
 			// 	{2, 8, 1024, 2048, 4096},
-			// 	{3, 2, 8192},
+			// 	{3, 4, 8192, 8192, 16384},
 			// 	{0, -16384},
 			// }
+			convMap = [][]int{ //4.17558575 //Minimumkey
+				{4}, //tree length
+				{0, 8192},
+				{2, 8, 1024, 2048, 4096},
+				{3, 2, 8192},
+				{0, -16384},
+			}
 		} else if depth == 3 {
 			//3 depth, 28 rotation
-			convMap = [][]int{ //2.998039078
+			convMap = [][]int{ //2.998039078 //MinimumTime
 				{4}, //tree length
 				{1, 2, 1024},
 				{2, 4, 2048, 4096},
@@ -63,7 +63,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			// 	{3, 4, 8192, 8192, 16384},
 			// 	{0, -16384},
 			// }
-			// convMap = [][]int{ //3.143124109
+			// convMap = [][]int{ //3.143124109 //Minimumkey
 			// 	{5}, //tree length
 			// 	{1, 2, 1024},
 			// 	{0, 8192},
@@ -80,7 +80,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			// 	{0, -16384},
 			// }
 		} else if depth == 4 {
-			//4 depth, 26 rotation
+			//4 depth, 26 rotation //MinimumTime
 			convMap = [][]int{ //5.603784127
 				{5}, //tree length
 				{1, 2, 1024},
@@ -89,7 +89,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 				{3, 4, 8192, 8192, 16384},
 				{0, -16384},
 			}
-			// convMap = [][]int{ //5.658831721
+			// convMap = [][]int{ //5.658831721 //Minimumkey
 			// 	{6}, //tree length
 			// 	{1, 2, 1024},
 			// 	{1, 2, 2048},
@@ -112,16 +112,16 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 		//=================Choose MAP=================//
 		if depth == 2 {
 			//2 depth 77 rotation
-			convMap = [][]int{ //10854ms
-				{4}, //tree length
-				{2, 16, 1024, 2048, 4096, 8192},
+			convMap = [][]int{ //10854ms //MinimumTime //Minimumkey
+				{4},                             //tree length
+				{2, 16, 1024, 2048, 4096, 8192}, //아 이거 8개 로 두개씩 나눈담애 거기서 각자 par 도 가능하네...
 				{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
 				{0, -8192},
 				{0, -16384},
 			}
 		} else if depth == 3 {
 			//3 depth, 53 rotation,
-			convMap = [][]int{ //5.749128119
+			convMap = [][]int{ //5.749128119 //MinimumTime //Minimumkey
 				{5}, //tree length
 				{1, 4, 1024, 2048},
 				{2, 4, 4096, 8192},
@@ -147,27 +147,27 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			// }
 		} else if depth == 4 {
 			//4 depth, 45 rotation,
-			// convMap = [][]int{ //5.116857918
-			// 	{6}, //tree length
-			// 	{1, 2, 1024},
-			// 	{1, 2, 2048},
-			// 	{2, 4, 4096, 8192},
-			// 	{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
-			// 	{0, -8192},
-			// 	{0, -16384},
-			// }
-			convMap = [][]int{ //5.574295316
+			convMap = [][]int{ //5.116857918 //MinimumTime //Minimumkey
 				{6}, //tree length
-				{1, 4, 1024, 2048},
-				{1, 2, 4096},
-				{2, 2, 8192},
+				{1, 2, 1024},
+				{1, 2, 2048},
+				{2, 4, 4096, 8192},
 				{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
 				{0, -8192},
 				{0, -16384},
 			}
+			// convMap = [][]int{ //5.574295316
+			// 	{6}, //tree length
+			// 	{1, 4, 1024, 2048},
+			// 	{1, 2, 4096},
+			// 	{2, 2, 8192},
+			// 	{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
+			// 	{0, -8192},
+			// 	{0, -16384},
+			// }
 		} else if depth == 5 {
 			//5 depth, 43 rotation,
-			convMap = [][]int{ //4.918269213
+			convMap = [][]int{ //4.918269213 //MinimumTime //Minimumkey
 				{7}, //tree length
 				{1, 2, 1024},
 				{1, 2, 2048},
@@ -192,26 +192,26 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 		//=================Choose MAP=================//
 		if depth == 2 {
 			//2 depth, 49 rotation
-			convMap = [][]int{ //4.881658454s
-				{5}, //tree length
-				{0, 2048},
-				{2, 8, 1, 32, 1024},
-				{3, 8, 4096, 4096*2 - 2048, 4096*3 - 2048, 4096*4 - 4096, 4096*5 - 4096, 4096*6 - 6144, 4096*7 - 6144}, // 이렇게 하면9167 ms, 10254 ms {3,16,2048,4096,6144,8192-2048,8192,8192+2048,8192+4096,16384-4096,16384-2048,16384,16384+2048,16384+2048,16384+4096,16384+6144,16384+8192},
-				{0, -8192},
-				{0, -16384},
-			}
-			// convMap = [][]int{ //5.1030540s
-			// 	{6},
+			// convMap = [][]int{ //4.881658454s //MinimumTime
+			// 	{5}, //tree length
 			// 	{0, 2048},
-			// 	{0, 4096},
 			// 	{2, 8, 1, 32, 1024},
-			// 	{3, 4, 8192 - 2048, 16384 - 4096, 16384 + 2048},
+			// 	{3, 8, 4096, 4096*2 - 2048, 4096*3 - 2048, 4096*4 - 4096, 4096*5 - 4096, 4096*6 - 6144, 4096*7 - 6144}, // 이렇게 하면9167 ms, 10254 ms {3,16,2048,4096,6144,8192-2048,8192,8192+2048,8192+4096,16384-4096,16384-2048,16384,16384+2048,16384+2048,16384+4096,16384+6144,16384+8192},
 			// 	{0, -8192},
 			// 	{0, -16384},
 			// }
+			convMap = [][]int{ //5.1030540s //Minimumkey
+				{6},
+				{0, 2048},
+				{0, 4096},
+				{2, 8, 1, 32, 1024},
+				{3, 4, 8192 - 2048, 16384 - 4096, 16384 + 2048},
+				{0, -8192},
+				{0, -16384},
+			}
 		} else if depth == 3 {
 			//3 depth, 35 rotations
-			convMap = [][]int{ // 3.629454492
+			convMap = [][]int{ // 3.629454492 //MinimumTime //Minimumkey
 				{7},           //tree length
 				{1, 4, 1, 32}, //2
 				{0, 2048},     //1
@@ -251,7 +251,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			// }
 		} else if depth == 4 {
 			//4 depth, 31 rotation
-			convMap = [][]int{ //3.334074345
+			convMap = [][]int{ //3.334074345 //MinimumTime //Minimumkey
 				{8},          //tree length
 				{1, 2, 1},    //3
 				{1, 2, 32},   //2
@@ -277,35 +277,35 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 		//=================Choose MAP=================//
 		if depth == 2 {
 			//2 depth, 82 rotation
-			convMap = [][]int{ //8.507210175
+			// convMap = [][]int{ //8.507210175 //MinimumTime
+			// 	{5}, //tree length
+			// 	{2, 16, 1, 32, 1024, 2048},
+			// 	{3, 8, 4096, 8192 - 2, 8192 - 2 + 4096, 16384 - 32 - 32, 16384 - 32 - 32 + 4096, 16384 + 8192 - 32 - 32 - 2, 16384 + 8192 - 32 - 32 - 2 + 4096},
+			// 	{0, -4096},
+			// 	{0, -8192},
+			// 	{0, -16384},
+			// }
+			convMap = [][]int{ //9.152732748 //Minimumkey
 				{5}, //tree length
+				{0, 4096},
 				{2, 16, 1, 32, 1024, 2048},
-				{3, 8, 4096, 8192 - 2, 8192 - 2 + 4096, 16384 - 32 - 32, 16384 - 32 - 32 + 4096, 16384 + 8192 - 32 - 32 - 2, 16384 + 8192 - 32 - 32 - 2 + 4096},
+				{3, 4, 8192 - 2, 16384 - 32 - 32, 16384 + 8192 - 32 - 32 - 2},
 				{0, -4096},
 				{0, -8192},
 				{0, -16384},
 			}
-			// convMap = [][]int{ //9.152732748
-			// 	{5}, //tree length
-			// 	{0, 4096},
-			// 	{2, 16, 1, 32, 1024, 2048},
-			// 	{3, 4, 8192 - 2, 16384 - 32 - 32, 16384 + 8192 - 32 - 32 - 2},
-			// 	{0, -4096},
-			// 	{0, -8192},
-			// 	{0, -16384},
-			// }
 		} else if depth == 3 {
 			//3 depth, 58 rotation
-			// convMap = [][]int{ // 6.187910603
-			// 	{7},
-			// 	{1, 4, 1, 32},
-			// 	{0, 4096},
-			// 	{2, 4, 1024, 2048},
-			// 	{3, 4, 8192 - 2, 16384 - 32 - 32, 16384 + 8192 - 32 - 32 - 2},
-			// 	{0, -4096},
-			// 	{0, -8192},
-			// 	{0, -16384},
-			// }
+			convMap = [][]int{ // 6.187910603 //Minimumkey
+				{7},
+				{1, 4, 1, 32},
+				{0, 4096},
+				{2, 4, 1024, 2048},
+				{3, 4, 8192 - 2, 16384 - 32 - 32, 16384 + 8192 - 32 - 32 - 2},
+				{0, -4096},
+				{0, -8192},
+				{0, -16384},
+			}
 			// convMap = [][]int{ //6.424622329
 			// 	{7},
 			// 	{1, 2, 1},
@@ -326,15 +326,15 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			// 	{0, -8192},
 			// 	{0, -16384},
 			// }
-			convMap = [][]int{ // 6.117933801
-				{5}, //tree length
-				{1, 2, 1},
-				{2, 8, 32, 1024, 2048},
-				{3, 8, 4096, 8192 - 2, 8192 - 2 + 4096, 16384 - 32 - 32, 16384 - 32 - 32 + 4096, 16384 + 8192 - 32 - 32 - 2, 16384 + 8192 - 32 - 32 - 2 + 4096},
-				{0, -4096},
-				{0, -8192},
-				{0, -16384},
-			}
+			// convMap = [][]int{ // 6.117933801 //MinimumTime
+			// 	{5}, //tree length
+			// 	{1, 2, 1},
+			// 	{2, 8, 32, 1024, 2048},
+			// 	{3, 8, 4096, 8192 - 2, 8192 - 2 + 4096, 16384 - 32 - 32, 16384 - 32 - 32 + 4096, 16384 + 8192 - 32 - 32 - 2, 16384 + 8192 - 32 - 32 - 2 + 4096},
+			// 	{0, -4096},
+			// 	{0, -8192},
+			// 	{0, -16384},
+			// }
 			// convMap = [][]int{ //6.271759464
 			// 	{5}, //tree length
 			// 	{1, 4, 1, 32},
@@ -377,7 +377,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			// 	{0, -8192},
 			// 	{0, -16384}, //42
 			// }
-			convMap = [][]int{ //5.368570154
+			convMap = [][]int{ //5.368570154 //MinimumTime //Minimumkey
 				{8},                //tree length
 				{1, 2, 1},          //2    0 2 4 6
 				{1, 2, 32},         //16   0 4
@@ -419,7 +419,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			// 	{0, -8192},
 			// 	{0, -16384}, //42
 			// }
-		} else if depth == 5 { //5.118532799
+		} else if depth == 5 { //5.118532799 //MinimumTime //Minimumkey
 			//5 depth, 46 rotation
 			convMap = [][]int{
 				{9}, //tree length
@@ -448,7 +448,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 		//=================Choose MAP=================//
 		if depth == 2 {
 			//OPTION 3 : 2 depth, 66 rotation
-			convMap = [][]int{ //7906ms
+			convMap = [][]int{ //7906ms //MinimumTime //Minimumkey
 				{8}, //tree length
 				{0, 32 + 32},
 				{0, 1024},
@@ -461,7 +461,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			}
 		} else if depth == 3 {
 			//3 depth, 42 rotation
-			convMap = [][]int{ //4.28958011
+			convMap = [][]int{ //4.28958011 //MinimumTime //Minimumkey
 				{9},          //tree length
 				{1, 4, 1, 2}, //2*4=8
 				{0, 32 + 32}, //9
@@ -486,7 +486,7 @@ func GetConvMap(convID string, depth int) ([][]int, int, []int) {
 			// 	{0, -16384}, //34
 			// }
 		} else if depth == 4 {
-			//4 depth, 38 rotation
+			//4 depth, 38 rotation. //MinimumTime //Minimumkey
 			convMap = [][]int{ //3.915776299
 				{10},         //tree length
 				{1, 2, 1},    //3
