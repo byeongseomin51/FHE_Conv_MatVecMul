@@ -705,6 +705,57 @@ func GetFirstLocate(channel int, sameCopy int, k int) int {
 
 	return locate
 }
+func getPrettyMatrix(h int, w int) [][]float64 {
+	result := make([][]float64, h)
+	for i := range result {
+		result[i] = make([]float64, w)
+	}
+
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			result[i][j] = float64(10*i+j) / 100.0
+		}
+	}
+	return result
+}
+func originalMatMul(A, B [][]float64) [][]float64 {
+	rowsA := len(A)
+	colsA := len(A[0])
+	colsB := len(B[0])
+
+	C := make([][]float64, rowsA)
+	for i := range C {
+		C[i] = make([]float64, colsB)
+	}
+
+	for i := 0; i < rowsA; i++ {
+		for j := 0; j < colsB; j++ {
+			sum := 0.0
+			for k := 0; k < colsA; k++ {
+				sum += A[i][k] * B[k][j]
+			}
+			C[i][j] = sum
+		}
+	}
+	return C
+}
+func make2dTo1d(B [][]float64) []float64 {
+	result := make([]float64, len(B))
+	for i := 0; i < len(B); i++ {
+		result[i] = B[i][0]
+	}
+	return result
+}
+func resize(A []float64, ctLength int) []float64 {
+	diff := ctLength - len(A)
+	if diff <= 0 {
+		return A
+	}
+	for i := 0; i < diff; i++ {
+		A = append(A, 0)
+	}
+	return A
+}
 func Max(a, b int) int {
 	if a > b {
 		return a
@@ -721,4 +772,34 @@ func TimeDurToFloatMiliSec(inputTime time.Duration) float64 {
 
 func TimeDurToFloatNanoSec(inputTime time.Duration) float64 {
 	return float64(inputTime.Nanoseconds())
+}
+func rotate(input []float64, rotateNum int) []float64 {
+	size := len(input)
+	result := make([]float64, 0)
+
+	if rotateNum < 0 {
+		rotateNum += size
+	}
+
+	for s := rotateNum; s < size; s++ {
+		result = append(result, input[s])
+	}
+	for s := 0; s < rotateNum; s++ {
+		result = append(result, input[s])
+	}
+
+	return result
+}
+
+func add(input []float64, input2 []float64) []float64 {
+	size := len(input)
+	result := make([]float64, 0)
+	if len(input) != len(input2) {
+		fmt.Println("Size is different in add()!")
+	}
+	for index := 0; index < size; index++ {
+		result = append(result, input[index]+input2[index])
+	}
+
+	return result
 }

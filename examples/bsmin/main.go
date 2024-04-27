@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"rotOptResnet/mulParModules"
 	"sort"
@@ -1228,6 +1229,75 @@ func basicOperationTimeTest(cc *customContext) {
 	}
 
 }
+
+func bsgsMatVecMultAccuracyTest(cc *customContext) {
+	nt := 32768
+
+	for i := 16; i <= 512; i *= 2 {
+		N := i
+		fmt.Printf("=== Conevntional (BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
+		A := getPrettyMatrix(N, N)
+		B := getPrettyMatrix(N, 1)
+
+		//answer
+		answer := originalMatMul(A, B)
+
+		//change B to ciphertext
+		B1d := make2dTo1d(B)
+		B1d = resize(B1d, nt)
+		Bct := floatToCiphertextLevel(B1d, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+		//start mat vec mul
+		rot := mulParModules.BsgsDiagMatVecMulRegister(N)
+		newEvaluator := RotIndexToGaloisElements(rot, cc)
+		matVecMul := mulParModules.NewBsgsDiagMatVecMul(A, N, nt, newEvaluator, cc.Encoder, cc.Params)
+		startTime := time.Now()
+		BctOut := matVecMul.Foward(Bct)
+		endTime := time.Now()
+		outputFloat := ciphertextToFloat(BctOut, cc)
+
+		fmt.Println("Time : ", TimeDurToFloatMiliSec(endTime.Sub(startTime)), " ms")
+		fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:N], make2dTo1d(answer)))
+		n1, n2 := mulParModules.FindBsgsSol(N)
+		fmt.Println("Rotation :", n1+n2-1, ", Mul :", n1*n2, ", Add :", n1*n2+n1+1)
+	}
+}
+func parBsgsMatVecMultAccuracyTest(cc *customContext) {
+	nt := cc.Params.MaxSlots()
+	pi := 1
+	for i := 16; i <= 512; i *= 2 {
+		N := i
+		fmt.Printf("=== Proposed (Parallely BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
+		A := getPrettyMatrix(N, N)
+		B := getPrettyMatrix(N, 1)
+
+		//answer
+		answer := originalMatMul(A, B)
+
+		//change B to ciphertext
+		B1d := make2dTo1d(B)
+		B1d = resize(B1d, nt)
+		for i := 1; i < pi; i *= 2 {
+			tempB := rotate(B1d, -(nt/pi)*i)
+			B1d = add(tempB, B1d)
+		}
+		Bct := floatToCiphertextLevel(B1d, 2, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+		//start mat vec mul
+		rot := mulParModules.ParBsgsDiagMatVecMulRegister(N, nt, pi)
+		newEvaluator := RotIndexToGaloisElements(rot, cc)
+		matVecMul := mulParModules.NewParBsgsDiagMatVecMul(A, N, nt, pi, newEvaluator, cc.Encoder, cc.Params)
+		startTime := time.Now()
+		BctOut := matVecMul.Foward(Bct)
+		endTime := time.Now()
+		outputFloat := ciphertextToFloat(BctOut, cc)
+
+		fmt.Println("Time : ", TimeDurToFloatMiliSec(endTime.Sub(startTime)), " ms")
+		fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:N], make2dTo1d(answer)))
+		n1, n2 := mulParModules.FindParBsgsSol(N, nt, pi)
+		fmt.Println("Rotation :", 2*int(math.Log2(float64(n2)))+(n1)-int(math.Log2(float64(pi))), ", Mul :", n1, ", Add :", n1+int(math.Log2(float64(n2)))+1)
+	}
+}
 func main() {
 
 	//CKKS settings
@@ -1241,7 +1311,7 @@ func main() {
 
 	// Operation tests
 	// avgPoolTest(context)
-	parfullyConnectedAccuracyTest(20, context)
+	// parfullyConnectedAccuracyTest(20, context)
 	// mulParfullyConnectedAccuracyTest(20, context) //conventional
 	// rotOptDownSamplingTest(context)
 	// mulParDownSamplingTest(context)
@@ -1262,4 +1332,10 @@ func main() {
 
 	//basicOperationTimeTest
 	// basicOperationTimeTest(context)
+
+	/////////////////////////////////////
+	//Matrix-Vector Multiplication Test//
+	/////////////////////////////////////
+	parBsgsMatVecMultAccuracyTest(context) //proposed
+	bsgsMatVecMultAccuracyTest(context)    //conventional
 }
