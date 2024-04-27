@@ -7,7 +7,7 @@ import (
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
 
-type mulParFC struct {
+type MulParFC struct {
 	Evaluator       *ckks.Evaluator
 	preCompLeftover *rlwe.Plaintext
 	preCompBias     *rlwe.Plaintext
@@ -16,8 +16,8 @@ type mulParFC struct {
 	params          ckks.Parameters
 }
 
-func NewmulParFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, layer int) *mulParFC {
-	// fmt.Println("mulParFC : ", layer)
+func NewMulParFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, layer int) *MulParFC {
+	// fmt.Println("MulParFC : ", layer)
 	path := "mulParModules/precomputed/parFC/" + strconv.Itoa(layer) + "/"
 
 	//declare
@@ -37,7 +37,7 @@ func NewmulParFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, l
 		}
 	}
 
-	return &mulParFC{
+	return &MulParFC{
 		Evaluator:       ev,
 		preCompLeftover: floatToPlain(weights[9], ec, params),
 		preCompBias:     txtToPlain(ec, path+"bias.txt", params),
@@ -46,7 +46,7 @@ func NewmulParFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, l
 		params:          params,
 	}
 }
-func (obj mulParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+func (obj MulParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	ct_rot_index := []int{-8, -7, -6, -5, -4, -3, -2, -1, 0}
 	result_rot_index := []int{0, 9, 18, 27, 36, 45, 54, 63}

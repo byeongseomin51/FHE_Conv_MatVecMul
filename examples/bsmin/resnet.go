@@ -257,7 +257,7 @@ func NewResnetCifar10(resnetLayerNum int, Evaluator *ckks.Evaluator, Encoder *ck
 		Convbn1:        mulParModules.NewrotOptConv(newEvaluator, Encoder, Decryptor, params, resnetLayerNum, "CONV1", 2, 0, 1),
 		Relu1:          mulParModules.NewRelu(newEvaluator, Encoder, Decryptor, Encryptor, params),
 		AvgPool:        mulParModules.NewAvgPool(newEvaluator, Encoder, params),
-		FullyConnected: mulParModules.NewparFC(newEvaluator, Encoder, params, resnetLayerNum),
+		FullyConnected: mulParModules.NewParFC(newEvaluator, Encoder, params, resnetLayerNum),
 
 		Decryptor: Decryptor,
 		params:    params,

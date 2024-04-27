@@ -718,3 +718,7 @@ func TimeDurToFloatSec(inputTime time.Duration) float64 {
 func TimeDurToFloatMiliSec(inputTime time.Duration) float64 {
 	return float64(inputTime.Nanoseconds()) / 1e6
 }
+
+func TimeDurToFloatNanoSec(inputTime time.Duration) float64 {
+	return float64(inputTime.Nanoseconds())
+}

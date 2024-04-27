@@ -939,6 +939,19 @@ func rotate(input []float64, rotateNum int) []float64 {
 	return result
 }
 
+func add(input []float64, input2 []float64) []float64 {
+	size := len(input)
+	result := make([]float64, 0)
+	if len(input) != len(input2) {
+		fmt.Println("Size is different in add()!")
+	}
+	for index := 0; index < size; index++ {
+		result = append(result, input[index]+input2[index])
+	}
+
+	return result
+}
+
 func makeZeroBorderOnes(UDLR []int, sideSize int) [][]float64 {
 	ones := make([][]float64, sideSize)
 	for i := range ones {

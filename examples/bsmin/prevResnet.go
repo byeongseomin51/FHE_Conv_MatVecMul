@@ -58,7 +58,7 @@ type prevResnetCifar10 struct {
 	prevLayer2     *prevLayer
 	prevLayer3     *prevLayer
 	AvgPool        *mulParModules.AvgPool
-	FullyConnected *mulParModules.ParFC
+	FullyConnected *mulParModules.MulParFC
 
 	Evaluator *ckks.Evaluator
 	Encoder   *ckks.Encoder
@@ -183,7 +183,7 @@ func NewprevResnetCifar10(resnetprevLayerNum int, Evaluator *ckks.Evaluator, Enc
 		Convbn1:        mulParModules.NewMulParConv(newEvaluator, Encoder, Decryptor, params, resnetprevLayerNum, "CONV1", 0, 1),
 		Relu1:          mulParModules.NewRelu(newEvaluator, Encoder, Decryptor, Encryptor, params),
 		AvgPool:        mulParModules.NewAvgPool(newEvaluator, Encoder, params),
-		FullyConnected: mulParModules.NewparFC(newEvaluator, Encoder, params, resnetprevLayerNum),
+		FullyConnected: mulParModules.NewMulParFC(newEvaluator, Encoder, params, resnetprevLayerNum),
 
 		Decryptor: Decryptor,
 		params:    params,
