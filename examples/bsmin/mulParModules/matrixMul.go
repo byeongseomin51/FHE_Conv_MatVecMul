@@ -205,7 +205,7 @@ func diagonalized(weight [][]float64, N int, nt int) [][]float64 {
 func FindBsgsSol(N int) (min_n1 int, min_n2 int) {
 	min_sum := 999999999999
 
-	for n1 := 2; n1 < int(math.Sqrt(float64(N)))+1; n1++ {
+	for n1 := 1; n1 < int(math.Sqrt(float64(N)))+1; n1++ {
 		if N%n1 == 0 {
 			n2 := N / n1
 			current_sum := n1 + n2
@@ -248,7 +248,7 @@ func FindParBsgsSol(N int, nt int, pi int) (min_n1 int, min_n2 int) {
 			}
 		}
 	}
-	fmt.Println(N, min_n1, min_n2)
+	// fmt.Println(N, min_n1, min_n2)
 	return min_n1, min_n2
 }
 
