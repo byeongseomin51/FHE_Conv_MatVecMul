@@ -1,0 +1,894 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"rotOptResnet/mulParModules"
+	"sort"
+	"time"
+	"unsafe"
+
+	"github.com/tuneinsight/lattigo/v5/core/rlwe"
+	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
+)
+
+func main() {
+
+	args := os.Args[1:]
+	//example :
+	//go run . conv parBSGS rotkey
+
+	//== supported args ======================================================================================================================================//
+	// basic : Execution time of rotation, multiplication, addition in our CKKS environment.
+	// conv : Time comparison between rotation optimized convolution and multiplexed parallel convolution.
+	// blueprint : Extract current blueprint.
+	// downsamp : Time comparison between rotation optimized downsampling and multiplexed parllel downsampling.
+	// rotkey : Rotation key reduction test.
+	// parBSGS :Time comparison between Parallel BSGS matrix vector multiplication and BSGS diagonal method.
+	// fc : Apply Parallel BSGS matrix vector multiplication to Fully Connected Layer of Resnet20(CIFAR-10 images.) where matrx(10x64) vector(64x1) result(10x1).
+	//=========================================================================================================================================================//
+
+	if len(args) == 0 {
+		fmt.Println("args set as ALL")
+		args = []string{"ALL"}
+	} else if len(args) == 1 {
+		fmt.Println("args : ", args)
+	}
+
+	//CKKS settings
+	context := setCKKSEnv() //CKKS environment
+
+	//basicOperationTimeTest
+	if Contains(args, "basic") || args[0] == "ALL" {
+		basicOperationTimeTest(context)
+	}
+
+	///////////////////////////////////////
+	//Rotation Optimized Convolution Test//
+	///////////////////////////////////////
+
+	// Convolution Tests
+	if Contains(args, "conv") || args[0] == "ALL" {
+		rotOptConvTimeTest(20, context)
+		mulParConvTimeTest(20, context)
+	}
+
+	// Print Blue Print. Corresponds to Appendix A.
+	if Contains(args, "blueprint") || args[0] == "ALL" {
+		getBluePrint()
+	}
+
+	// Downsampling Tests
+	if Contains(args, "downsamp") || args[0] == "ALL" {
+		rotOptDownSamplingTest(context)
+		mulParDownSamplingTest(context)
+	}
+
+	// RotKey Test
+	if Contains(args, "rotkey") || args[0] == "ALL" {
+		HierarchyKeyTest(20)    //Hierarchical two-level rotation key system.
+		overallKeyTest(context) //Also apply small level key system.
+	}
+
+	/////////////////////////////////////
+	//Matrix-Vector Multiplication Test//
+	/////////////////////////////////////
+	//Apply to fully connected layer
+	if Contains(args, "fc") || args[0] == "ALL" {
+		parBSGSfullyConnectedAccuracyTest(20, context) //using parallel BSGS matrix-vector multiplication to fully connected layer.
+		mulParfullyConnectedAccuracyTest(20, context)  //conventional
+	}
+	if Contains(args, "parBSGS") || args[0] == "ALL" {
+		for N := 32; N <= 512; N *= 2 {
+			parBsgsMatVecMultAccuracyTest(N, context) //proposed
+			bsgsMatVecMultAccuracyTest(N, context)    //conventional
+		}
+	}
+}
+
+type customContext struct {
+	Params      ckks.Parameters
+	Encoder     *ckks.Encoder
+	Kgen        *rlwe.KeyGenerator
+	Sk          *rlwe.SecretKey
+	Pk          *rlwe.PublicKey
+	EncryptorPk *rlwe.Encryptor
+	EncryptorSk *rlwe.Encryptor
+	Decryptor   *rlwe.Decryptor
+	Evaluator   *ckks.Evaluator
+}
+
+func floatToCiphertextLevel(floatInput []float64, level int, params ckks.Parameters, encoder *ckks.Encoder, encryptor *rlwe.Encryptor) *rlwe.Ciphertext {
+
+	// encode to Plaintext
+	exPlain := ckks.NewPlaintext(params, level)
+	_ = encoder.Encode(floatInput, exPlain)
+
+	// Encrypt to Ciphertext
+	exCipher, err := encryptor.EncryptNew(exPlain)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return exCipher
+}
+
+func ciphertextToFloat(exCipher *rlwe.Ciphertext, cc *customContext) []float64 {
+
+	// Decrypt to Plaintext
+	exPlain := cc.Decryptor.DecryptNew(exCipher)
+
+	// Decode to []complex128
+	float := make([]float64, cc.Params.MaxSlots())
+	cc.Encoder.Decode(exPlain, float)
+
+	return float
+}
+
+func getConvTestNum(convID string) []int {
+	if convID == "CONV1" {
+		return []int{0, 1}
+	} else if convID == "CONV2" {
+		return []int{0, 1}
+	} else if convID == "CONV3s2" {
+		return []int{0, 1}
+	} else if convID == "CONV3" {
+		return []int{0, 2}
+	} else if convID == "CONV4s2" {
+		return []int{0, 1}
+	} else if convID == "CONV4" {
+		return []int{0, 2}
+	}
+	return []int{}
+}
+
+func parBSGSfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
+	startLevel := 1
+	endLevel := cc.Params.MaxLevel()
+	// endLevel := 2
+	//register
+	rot := mulParModules.ParBSGSFCRegister()
+
+	//rot register
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+
+	//make avgPooling instance
+	fc := mulParModules.NewParBSGSFC(newEvaluator, cc.Encoder, cc.Params, layerNum)
+
+	//Make input float data
+	temp := txtToFloat("true_logs/AvgPoolEnd.txt")
+	trueInputFloat := make([]float64, 32768)
+	for i := 0; i < len(temp); i++ {
+		for par := 0; par < 8; par++ {
+			trueInputFloat[i+4096*par] = temp[i]
+		}
+	}
+
+	//Make output float data
+	trueOutputFloat := txtToFloat("true_logs/FcEnd.txt")
+
+	var outputCt *rlwe.Ciphertext
+	fmt.Printf("level executionTime\n")
+	for level := startLevel; level <= endLevel; level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(trueInputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+		// Timer start
+		startTime := time.Now()
+
+		// AvgPooling Foward
+		outputCt = fc.Foward(inputCt)
+
+		// Timer end
+		endTime := time.Now()
+
+		// Print Elapsed Time
+		fmt.Printf("%v %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+
+	}
+
+	//Decryption
+	outputFloat := ciphertextToFloat(outputCt, cc)
+
+	fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
+}
+
+func mulParfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
+	startLevel := 1
+	endLevel := cc.Params.MaxLevel()
+	//register
+	rot := mulParModules.MulParFCRegister()
+
+	//rot register
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+
+	//make avgPooling instance
+	fc := mulParModules.NewMulParFC(newEvaluator, cc.Encoder, cc.Params, layerNum)
+
+	//Make input float data
+	temp := txtToFloat("true_logs/AvgPoolEnd.txt")
+	trueInputFloat := make([]float64, 32768)
+	for i := 0; i < len(temp); i++ {
+		for par := 0; par < 8; par++ {
+			trueInputFloat[i+4096*par] = temp[i]
+		}
+	}
+
+	//Make output float data
+	trueOutputFloat := txtToFloat("true_logs/FcEnd.txt")
+
+	var outputCt *rlwe.Ciphertext
+	fmt.Printf("level executionTime\n")
+	for level := startLevel; level <= endLevel; level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(trueInputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+		// Timer start
+		startTime := time.Now()
+
+		// AvgPooling Foward
+		outputCt = fc.Foward(inputCt)
+
+		// Timer end
+		endTime := time.Now()
+
+		// Print Elapsed Time
+		fmt.Printf("%v %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+
+	}
+
+	//Decryption
+	outputFloat := ciphertextToFloat(outputCt, cc)
+
+	fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
+
+}
+
+func rotOptDownSamplingTest(cc *customContext) {
+	//register
+	rot := mulParModules.RotOptDSRegister()
+
+	//rot register
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+
+	//make avgPooling instance
+	ds16 := mulParModules.NewRotOptDS(16, newEvaluator, cc.Encoder, cc.Params)
+	ds32 := mulParModules.NewRotOptDS(32, newEvaluator, cc.Encoder, cc.Params)
+
+	//Make input float data
+	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+	var outputCt16 *rlwe.Ciphertext
+	var outputCt32 *rlwe.Ciphertext
+	for level := 2; level <= cc.Params.MaxLevel(); level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+		// /////////
+		// Timer start
+		startTime := time.Now()
+
+		// AvgPooling Foward
+		outputCt16 = ds16.Foward(inputCt)
+
+		// Timer end
+		endTime := time.Now()
+
+		// Print Elapsed Time
+		// fmt.Printf("%v Time(16) : %v \n", level,TimeDurToFloatSec(endTime.Sub(startTime)))
+		// ////////
+		// Timer start
+		startTime = time.Now()
+
+		// AvgPooling Foward
+		outputCt32 = ds32.Foward(inputCt)
+
+		// Timer end
+		endTime = time.Now()
+
+		// Print Elapsed Time
+		fmt.Printf("%v Time(32) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+	}
+
+	// 	//Decryption
+	outputFloat16 := ciphertextToFloat(outputCt16, cc)
+	outputFloat32 := ciphertextToFloat(outputCt32, cc)
+
+	// //Test
+	fmt.Println("==16==")
+	Count01num(outputFloat16)
+	fmt.Println("\n==32==")
+	Count01num(outputFloat32)
+}
+
+func mulParDownSamplingTest(cc *customContext) {
+	//register
+	rot := mulParModules.MulParDSRegister()
+
+	//rot register
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+
+	//make avgPooling instance
+	ds16 := mulParModules.NewMulParDS(16, newEvaluator, cc.Encoder, cc.Params)
+	ds32 := mulParModules.NewMulParDS(32, newEvaluator, cc.Encoder, cc.Params)
+
+	//Make input float data
+	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
+
+	for level := 2; level <= cc.Params.MaxLevel(); level++ {
+		// Encryption
+		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+		// /////////
+		// Timer start
+		startTime := time.Now()
+
+		// AvgPooling Foward
+		ds16.Foward(inputCt)
+
+		// Timer end
+		endTime := time.Now()
+
+		// Print Elapsed Time
+		fmt.Printf("%v Time(16) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		// ////////
+		// Timer start
+		startTime = time.Now()
+
+		// AvgPooling Foward
+		ds32.Foward(inputCt)
+
+		// Timer end
+		endTime = time.Now()
+
+		// Print Elapsed Time
+		// fmt.Printf("%v Time(32) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+	}
+
+	// outputFloat16 := ciphertextToFloat(outputCt16, cc)
+	// outputFloat32 := ciphertextToFloat(outputCt32, cc)
+}
+
+func MakeGalois(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
+
+	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
+
+	for level := 0; level < len(rotIndexes); level++ {
+		var galElements []uint64
+		for _, rot := range rotIndexes[level] {
+			galElements = append(galElements, cc.Params.GaloisElement(rot))
+		}
+		galKeys := cc.Kgen.GenGaloisKeysNew(galElements, cc.Sk)
+
+		galEls = append(galEls, galKeys)
+
+		fmt.Println(unsafe.Sizeof(*galKeys[0]), unsafe.Sizeof(galKeys[0].GaloisElement), unsafe.Sizeof(galKeys[0].NthRoot), unsafe.Sizeof(galKeys[0].EvaluationKey), unsafe.Sizeof(galKeys[0].GadgetCiphertext), unsafe.Sizeof(galKeys[0].BaseTwoDecomposition), unsafe.Sizeof(galKeys[0].Value))
+	}
+	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
+	return galEls
+}
+func ClientMakeGaloisWithLevel(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
+
+	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
+
+	for level := 0; level < len(rotIndexes); level++ {
+		var galElements []uint64
+		for _, rot := range rotIndexes[level] {
+			galElements = append(galElements, cc.Params.GaloisElement(rot))
+		}
+		galKeys := cc.Kgen.ClientGenGaloisKeysNew(level, galElements, cc.Sk)
+
+		galEls = append(galEls, galKeys)
+
+		fmt.Println(unsafe.Sizeof(*galKeys[0]), unsafe.Sizeof(galKeys[0].GaloisElement), unsafe.Sizeof(galKeys[0].NthRoot), unsafe.Sizeof(galKeys[0].EvaluationKey), unsafe.Sizeof(galKeys[0].GadgetCiphertext), unsafe.Sizeof(galKeys[0].BaseTwoDecomposition), unsafe.Sizeof(galKeys[0].Value))
+	}
+	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
+	return galEls
+}
+
+func rotOptConvTimeTest(layerNum int, cc *customContext) {
+	fmt.Println("RotOptConvTimeTest started!")
+
+	//For log
+	currentTime := time.Now()
+	logFileName := "RotOptLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt"
+	fmt.Println("Logs will be saved in : " + "RotOptLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt")
+	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	log.SetFlags(0)
+
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	maxDepth := []int{2, 4, 5, 4, 5, 4}
+
+	//Set min depth
+	// startDepth := 2
+	startDepth := 2
+
+	//Set iter
+	iter := 1
+
+	// minStartCipherLevel := 2
+	minStartCipherLevel := 2
+	maxStartCipherLevel := cc.Params.MaxLevel()
+
+	log.Printf("level executionTime\n")
+	fmt.Printf("level executionTime\n")
+	for index := 0; index < len(convIDs); index++ {
+		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
+			convID := convIDs[index]
+
+			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
+
+			//register
+			rots := mulParModules.RotOptConvRegister(convID, depth)
+			// for _, r := range rots {
+			// 	fmt.Println(len(r), r)
+			// }
+
+			//rot register
+			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+
+			//make rotOptConv instance
+			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+
+			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, minStartCipherLevel, maxStartCipherLevel, iter)
+			log.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, minStartCipherLevel, maxStartCipherLevel, iter)
+
+			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+
+				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+				cc.Encoder.Encode(inputRandomVector, plain)
+				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
+				//Timer start
+				startTime := time.Now()
+
+				//Conv Foward
+				for i := 0; i < iter; i++ {
+					conv.Foward(inputCt)
+				}
+
+				//Timer end
+				endTime := time.Now()
+
+				//Print Elapsed Time
+				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
+				fmt.Printf("%v %v \n", startCipherLevel, time)
+				log.Printf("%v %v \n", startCipherLevel, time)
+
+			}
+		}
+	}
+}
+func mulParConvTimeTest(layerNum int, cc *customContext) {
+	fmt.Println("MulParConvTimeTest stated!")
+
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+
+	//For log
+	currentTime := time.Now()
+	logFileName := "MulParLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt"
+	fmt.Println("Logs will be saved in : " + "MulParLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt")
+	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	log.SetFlags(0)
+
+	//Set iter
+	iter := 1
+
+	minStartCipherLevel := 2
+	maxStartCipherLevel := cc.Params.MaxLevel()
+
+	for index := 0; index < len(convIDs); index++ {
+		convID := convIDs[index]
+
+		inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
+
+		//register
+		rots := mulParModules.MulParConvRegister(convID)
+
+		//rot register
+		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+
+		//make mulParConv instance
+		conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Params, layerNum, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+
+		log.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
+		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
+
+		log.Printf("level executionTime\n")
+		fmt.Printf("level executionTime\n")
+		for startCipherLevel := minStartCipherLevel; startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+
+			plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+			cc.Encoder.Encode(inputRandomVector, plain)
+			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
+			//Timer start
+			startTime := time.Now()
+
+			//Conv Foward
+			for i := 0; i < iter; i++ {
+				conv.Foward(inputCt)
+			}
+
+			//Timer end
+			endTime := time.Now()
+
+			//Print Elapsed Time
+			time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
+			log.Printf("%v %v \n", startCipherLevel, time)
+			fmt.Printf("%v %v \n", startCipherLevel, time)
+		}
+
+	}
+}
+
+func RotIndexToGaloisElements(input []int, context *customContext) *ckks.Evaluator {
+	var galElements []uint64
+
+	for _, rotIndex := range input {
+		galElements = append(galElements, context.Params.GaloisElement(rotIndex))
+	}
+	galKeys := context.Kgen.GenGaloisKeysNew(galElements, context.Sk)
+
+	newEvaluator := ckks.NewEvaluator(context.Params, rlwe.NewMemEvaluationKeySet(context.Kgen.GenRelinearizationKeyNew(context.Sk), galKeys...))
+
+	return newEvaluator
+}
+
+func setCKKSEnv() *customContext {
+	context := new(customContext)
+	// context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+	// 	LogN:            16,
+	// 	LogQ:            []int{49, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40},
+	// 	LogP:            []int{49, 49, 49},
+	// 	LogDefaultScale: 40,
+	// })
+
+	context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+		LogN: 16,
+		LogQ: []int{51, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46,
+			46, 46, 46, 46, 46, 46, 46, 46, 46, 46},
+		LogP:            []int{60, 60, 60, 60, 60},
+		LogDefaultScale: 46,
+	})
+
+	context.Kgen = ckks.NewKeyGenerator(context.Params)
+
+	context.Sk, context.Pk = context.Kgen.GenKeyPairNew()
+
+	context.Encoder = ckks.NewEncoder(context.Params)
+
+	context.EncryptorPk = ckks.NewEncryptor(context.Params, context.Pk)
+
+	context.EncryptorSk = ckks.NewEncryptor(context.Params, context.Sk)
+
+	context.Decryptor = ckks.NewDecryptor(context.Params, context.Sk)
+
+	galElements := []uint64{context.Params.GaloisElement(2)}
+	galKeys := context.Kgen.GenGaloisKeysNew(galElements, context.Sk)
+
+	context.Evaluator = ckks.NewEvaluator(context.Params, rlwe.NewMemEvaluationKeySet(context.Kgen.GenRelinearizationKeyNew(context.Sk), galKeys...))
+
+	return context
+}
+
+func GalToEval(galKeys [][]*rlwe.GaloisKey, context *customContext) *ckks.Evaluator {
+	var linGalKeys []*rlwe.GaloisKey
+
+	for _, galKey := range galKeys {
+		for _, g := range galKey {
+			linGalKeys = append(linGalKeys, g)
+		}
+	}
+	newEvaluator := ckks.NewEvaluator(context.Params, rlwe.NewMemEvaluationKeySet(context.Kgen.GenRelinearizationKeyNew(context.Sk), linGalKeys...))
+	return newEvaluator
+}
+
+// Reorganize to -16384 ~ 16384. And remove repetitive elements.
+func OrganizeRot(rotIndexes [][]int) [][]int {
+	var result [][]int
+	for level := 0; level < len(rotIndexes); level++ {
+		//Reorganize
+		rotateSets := make(map[int]bool)
+		for _, each := range rotIndexes[level] {
+			temp := each
+			if temp > 16384 {
+				temp = temp - 32768
+			} else if temp < -16384 {
+				temp = temp + 32768
+			}
+			rotateSets[temp] = true
+		}
+		//Change map to array
+		var rotateArray []int
+		for element := range rotateSets {
+			if element != 0 {
+				rotateArray = append(rotateArray, element)
+			}
+		}
+		sort.Ints(rotateArray)
+		//append to result
+		result = append(result, rotateArray)
+	}
+	return result
+}
+func HierarchyKeyTest(layer int) {
+	//Organize what kinds of key-level 0 keys needed.
+	mulParRot, rotOptRot := RotKeyOrganize(layer)
+
+	//For rotOptRot
+	fmt.Println("===Rotation Optimized Convolution Level1 key needed===")
+	fmt.Println(Level1RotKeyNeededForInference(rotOptRot))
+	//For MulPar
+	fmt.Println("====Multiplexed Parallel Convolution Level1 key needed===")
+	fmt.Println(Level1RotKeyNeededForInference(mulParRot))
+
+}
+
+func overallKeyTest(cc *customContext) {
+
+	hdnum := 4.0
+
+	//register
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	maxDepth := []int{2, 2, 2, 2, 2, 2}
+
+	mulPar := make([][]int, 3)
+	rotOpt := make([][]int, 3)
+	for index := 0; index < len(convIDs); index++ {
+		mulParRot := mulParModules.MulParConvRegister(convIDs[index])
+		rotOptRot := mulParModules.RotOptConvRegister(convIDs[index], maxDepth[index])
+
+		for i := 0; i < 3; i++ {
+			for _, each := range mulParRot[i] {
+				mulPar[i] = append(mulPar[i], each)
+			}
+
+			for _, each := range rotOptRot[i] {
+				rotOpt[i] = append(rotOpt[i], each)
+			}
+		}
+	}
+
+	for i := 0; i < 3; i++ {
+		mulPar[i] = removeDuplicates(mulPar[i])
+		rotOpt[i] = removeDuplicates(rotOpt[i])
+	}
+
+	// fmt.Println(mulPar)
+	// fmt.Println(rotOpt)
+
+	linmulPar := []int{}
+	for _, each := range mulPar {
+		for _, each1 := range each {
+			linmulPar = append(linmulPar, each1)
+		}
+	}
+	linmulPar = removeDuplicates(linmulPar)
+
+	linrotOpt := []int{}
+	for _, each := range rotOpt {
+		for _, each1 := range each {
+			linrotOpt = append(linrotOpt, each1)
+		}
+	}
+	linrotOpt = removeDuplicates(linrotOpt)
+
+	// With max Mult Level , 0 key level
+	multMaxkey0 := NewSmallLevelKey(1, 0, cc.Params.MaxLevel(), &cc.Params)
+	eachKeySize := multMaxkey0.GetKeySize()
+	fmt.Println("==MulPar with max Mult Level, 0 key level==")
+	fmt.Println(float64(eachKeySize*len(linmulPar))/1048576.0, "MB")
+	fmt.Println("==RotOpt with max Mult Level, 0 key level==")
+	fmt.Println(float64(eachKeySize*len(linrotOpt))/1048576.0, "MB")
+
+	// With max Mult Level , 1 key level
+	lv1keys := []int{1, -1, 4, -4, 16, -16, 256, -256, 1024, -1024, 4096, -4096, 16384, -16384}
+	multMaxkey1 := GenLevelUpKey(multMaxkey0, hdnum) //multMaxkey0.Hdnum
+	eachKeySize = multMaxkey1.GetKeySize()
+
+	// fmt.Println("MulPar with max Mult Level, 1 key level")
+	// fmt.Println(eachKeySize*len(lv1keys)/1048576, "MB")
+	fmt.Println("==RotOpt with max Mult Level, 1 key level==")
+	fmt.Println(float64(eachKeySize*len(lv1keys))/1048576.0, "MB")
+
+	// With opt Mult Level , 1 key level
+	// fmt.Println("MulPar with opt Mult Level, 1 key level")
+	fmt.Println("==RotOpt with opt Mult Level, 0 key level==")
+	mult2key0 := NewSmallLevelKey(1, 0, 2, &cc.Params)
+	eachKeySize = mult2key0.GetKeySize()
+	fmt.Println(float64(eachKeySize*len(linrotOpt))/1048576.0, "MB")
+
+	//Final. Opt Mult Level, 1 key level
+	fmt.Println("==RotOpt with opt Mult Level, 1 key level==")
+	mult2key1 := GenLevelUpKey(mult2key0, hdnum)
+	eachKeySize = mult2key1.GetKeySize()
+	fmt.Println(float64(eachKeySize*len(linrotOpt))/1048576.0, "MB")
+
+}
+
+// Extract current blueprint
+func getBluePrint() {
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	maxDepth := []int{2, 4, 5, 4, 5, 4}
+
+	for index := 0; index < len(convIDs); index++ {
+		for depth := 2; depth <= maxDepth[index]; depth++ {
+			fmt.Printf("=== convID : %s, depth : %v === \n", convIDs[index], depth)
+			convMap, _, _ := mulParModules.GetConvBlueprints(convIDs[index], depth)
+			rotSumBP := make([][]int, 1)
+			rotSumBP[0] = []int{0}
+			crossCombineBP := make([]int, 0)
+
+			for d := 1; d < len(convMap); d++ {
+
+				if convMap[d][0] == 3 {
+					crossCombineBP = append(crossCombineBP, convMap[d][1])
+					crossCombineBP = append(crossCombineBP, 0)
+					crossCombineBP = append(crossCombineBP, convMap[d][2:]...)
+					break
+				} else {
+					rotSumBP = append(rotSumBP, convMap[d])
+				}
+
+			}
+			rotSumBP[0][0] = len(rotSumBP) - 1
+
+			fmt.Println("RotationSumBP : ")
+			fmt.Print("[")
+			for _, row := range rotSumBP {
+				fmt.Print("[")
+				for i, val := range row {
+					if i > 0 {
+						fmt.Print(", ")
+					}
+					fmt.Printf("%d", val)
+				}
+				fmt.Print("],")
+			}
+			fmt.Println("]")
+
+			fmt.Println("CrossCombineBP : ")
+			fmt.Print("[")
+			for i, val := range crossCombineBP {
+				if i > 0 {
+					fmt.Print(", ")
+				}
+				fmt.Printf("%d", val)
+			}
+			fmt.Println("]")
+
+			fmt.Println("KernelBP : ")
+			fmt.Print("[")
+			for _, row := range mulParModules.GetMulParConvFeature(convIDs[index]).KernelBP {
+				fmt.Print("[")
+				for i, val := range row {
+					if i > 0 {
+						fmt.Print(", ")
+					}
+					fmt.Printf("%d", val)
+				}
+				fmt.Print("],")
+			}
+			fmt.Println("]")
+			fmt.Println()
+
+		}
+
+	}
+
+}
+
+func basicOperationTimeTest(cc *customContext) {
+	floats := makeRandomFloat(32768)
+
+	rot := make([]int, 1)
+	rot[0] = 1
+
+	fmt.Println("Rotate Add Mul")
+	//rot register
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+	for i := 0; i <= cc.Params.MaxLevel(); i++ {
+		cipher1 := floatToCiphertextLevel(floats, i, cc.Params, cc.Encoder, cc.EncryptorSk)
+		start1 := time.Now()
+		newEvaluator.Rotate(cipher1, 1, cipher1)
+		end1 := time.Now()
+
+		start2 := time.Now()
+		newEvaluator.Add(cipher1, cipher1, cipher1)
+		end2 := time.Now()
+
+		start3 := time.Now()
+		newEvaluator.Mul(cipher1, cipher1, cipher1)
+		end3 := time.Now()
+		// newEvaluator.Rescale(cipher1, cipher1)
+		fmt.Println(i, TimeDurToFloatMiliSec(end1.Sub(start1)), TimeDurToFloatMiliSec(end2.Sub(start2)), TimeDurToFloatMiliSec(end3.Sub(start3)))
+	}
+
+}
+
+func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
+	nt := 32768
+
+	fmt.Printf("=== Conevntional (BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
+
+	A := getPrettyMatrix(N, N)
+	B := getPrettyMatrix(N, 1)
+
+	//answer
+	answer := originalMatMul(A, B)
+
+	//change B to ciphertext
+	B1d := make2dTo1d(B)
+	B1d = resize(B1d, nt)
+	//start mat vec mul
+	rot := mulParModules.BsgsDiagMatVecMulRegister(N)
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+	matVecMul := mulParModules.NewBsgsDiagMatVecMul(A, N, nt, newEvaluator, cc.Encoder, cc.Params)
+
+	fmt.Printf("level executionTime(sec)\n")
+	for level := 1; level <= cc.Params.MaxLevel(); level++ {
+
+		Bct := floatToCiphertextLevel(B1d, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+		startTime := time.Now()
+		BctOut := matVecMul.Foward(Bct)
+		endTime := time.Now()
+		outputFloat := ciphertextToFloat(BctOut, cc)
+
+		euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
+		fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
+	}
+}
+func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
+	nt := cc.Params.MaxSlots()
+	pi := 1 //initially setting. (how many identical datas are in single ciphertext)
+
+	fmt.Printf("=== Proposed (Parallely BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
+
+	A := getPrettyMatrix(N, N)
+	B := getPrettyMatrix(N, 1)
+
+	answer := originalMatMul(A, B)
+
+	B1d := make2dTo1d(B)
+	B1d = resize(B1d, nt)
+	for i := 1; i < pi; i *= 2 {
+		tempB := rotate(B1d, -(nt/pi)*i)
+		B1d = add(tempB, B1d)
+	}
+	//start mat vec mul
+	rot := mulParModules.ParBsgsDiagMatVecMulRegister(N, nt, pi)
+	newEvaluator := RotIndexToGaloisElements(rot, cc)
+	matVecMul := mulParModules.NewParBsgsDiagMatVecMul(A, N, nt, pi, newEvaluator, cc.Encoder, cc.Params)
+
+	fmt.Printf("level executionTime(sec)\n")
+	for level := 1; level <= cc.Params.MaxLevel(); level++ {
+
+		Bct := floatToCiphertextLevel(B1d, level, cc.Params, cc.Encoder, cc.EncryptorSk)
+
+		startTime := time.Now()
+		BctOut := matVecMul.Foward(Bct)
+		endTime := time.Now()
+		outputFloat := ciphertextToFloat(BctOut, cc)
+
+		euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
+		fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
+	}
+}
+func Contains(slice []string, str string) bool {
+	for _, v := range slice {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}

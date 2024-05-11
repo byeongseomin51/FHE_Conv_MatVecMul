@@ -1,12 +1,32 @@
 # Rotation Optimized Convolution and Parallel BSGS matrix-vector multiplication.       
+This is the supplementary implementation of 'Low-Latency Linear Transformations with Small Key Transmission for Private Neural Network on Homomorphic Encryption.'       
 
-This is the implementation of paper,     
-Low-Latency Linear Transformations with Small Key Transmission for Private Neural Network on Homomorphic Encryption.      
+Our implementation is based on lattigo v5.0.2.             
+https://github.com/tuneinsight/lattigo/tree/v5.0.2          
 
-We use lattigo v5.0.2 for implementation.            
-https://github.com/tuneinsight/lattigo/tree/v5.0.2         
+## run
+You can run rotation optimized convolution test function as below.     
+```   
+go mod tidy       
+go build    
+cd supplementary/examples/rotopt/     
+go run . conv      
+```    
 
-We provide several test function to reproduce the experiment.     
+Or you can choose some test function by arguments as below.     
+```
+go run . parBSGS conv          
+```
 
-https://libntl.org/     
+These are our arguments option. 
 
+|args|descript|image
+|------|---|---|
+|basic|Execution time of rotation, multiplication, addition in our CKKS environment|Fig.1|
+|conv|Execution time comparison of rotation optimized convolution and multiplexed parallel convolution|Fig.13|
+|blueprint|Extract current convolution's blueprint|Appendix A|
+|downsamp|Execution time comparison of rotation optimized downsampling and multiplexed parallel downsampling|Fig.14|
+|rotkey|Hierarchical rotation key system and small level key system test|TABLE 2|
+|fc|Apply parallel BSGS matrix-vector multiplication to fully connected layer.|Fig.15|
+|parBSGS|Execution time comparison of parallel BSGS matrix-vector multiplication and BSGS diagonal method. |Fig.15|
+|ALL|If you write ALL or don't write any args, all of the test function will be started.||
