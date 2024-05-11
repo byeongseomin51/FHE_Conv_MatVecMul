@@ -5,11 +5,9 @@ import (
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
-	"github.com/tuneinsight/lattigo/v5/utils/sampling"
 )
 
 type MulParConv struct {
-	//for debugging
 	encoder   *ckks.Encoder
 	decryptor *rlwe.Decryptor
 
@@ -18,8 +16,8 @@ type MulParConv struct {
 	preCompKernel  [][]*rlwe.Plaintext
 	preCompBNadd   *rlwe.Plaintext
 	preCompFilters [][]*rlwe.Plaintext
-	mode0TreeDepth int
-	cf             *ConvFeature
+
+	cf *ConvFeature
 
 	layerNum           int
 	blockNum           int
@@ -28,16 +26,13 @@ type MulParConv struct {
 	rotIndex3by3Kernel []int
 	depth1Rotate       []int
 	depth0Rotate       []int
-
-	beforeSplitNum int
-	splitNum       int
 }
 
 func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, params ckks.Parameters, resnetLayerNum int, convID string, blockNum int, operationNum int) *MulParConv {
 	// ("Conv : ", resnetLayerNum, convID, depth, blockNum, operationNum)
 
 	//MulParConv Setting
-	_, q, rotIndex3by3Kernel := GetConvMap(convID, 2)
+	_, q, rotIndex3by3Kernel := GetConvBlueprints(convID, 2)
 
 	// conv feature
 	cf := GetConvFeature(convID)
@@ -50,7 +45,7 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, dc *rlwe.Decryptor, par
 
 	// preCompKernel generate
 	filePath := path + "conv" + strconv.Itoa(operationNum) + "_weight"
-	for i := 0; i < len(cf.KernelMap); i++ {
+	for i := 0; i < len(cf.KernelBP); i++ {
 		var temp []*rlwe.Plaintext
 		for j := 0; j < 9; j++ {
 			temp = append(temp, txtToPlain(ec, filePath+strconv.Itoa(i)+"_"+strconv.Itoa(j)+".txt", params))
@@ -249,7 +244,7 @@ func MulParConvRegister(convID string) [][]int {
 		rotateSets[d] = make(map[int]bool)
 	}
 
-	_, _, rotIndex3by3Kernel := GetConvMap(convID, 2)
+	_, _, rotIndex3by3Kernel := GetConvBlueprints(convID, 2)
 
 	//Depth 2
 	for i := 0; i < len(rotIndex3by3Kernel); i++ {
@@ -285,7 +280,6 @@ func MulParConvRegister(convID string) [][]int {
 		rotateSets[0][-afterCopy] = true
 	}
 
-	// Level 별로 정리.
 	rotateArray := make([][]int, 3)
 	for d := 0; d < 3; d++ {
 		rotateArray[d] = make([]int, 0)
@@ -298,14 +292,6 @@ func MulParConvRegister(convID string) [][]int {
 
 	return rotateArray
 
-}
-
-func makeRandomFloat(length int) []float64 {
-	valuesWant := make([]float64, length)
-	for i := range valuesWant {
-		valuesWant[i] = sampling.RandFloat64(-1, 1)
-	}
-	return valuesWant
 }
 
 func getFirstLocate(channel int, sameCopy int, k int, isCONV1 bool) int {

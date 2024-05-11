@@ -122,22 +122,22 @@ func Count01num(arr []float64) {
 		} else if (currentZero == false) && (cur != 0.0) {
 			count++
 		} else {
-			if currentZero { //0이였었는데 1이 나옴
+			if currentZero {
 				currentZero = false
 				fmt.Printf("0 : %v\n", count)
 				count = 1
-			} else { //1이였었는데 0이 나옴
+			} else {
 				currentZero = true
 				fmt.Printf("1 : %v\n", count)
 				count = 1
 			}
 		}
 	}
-	if currentZero { //0이였었는데 1이 나옴
+	if currentZero {
 		currentZero = false
 		fmt.Printf("0 : %v\n", count)
 		count = 0
-	} else { //1이였었는데 0이 나옴
+	} else {
 		currentZero = true
 		fmt.Printf("1 : %v\n", count)
 		count = 0

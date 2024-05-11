@@ -78,7 +78,6 @@ func GeneralFilter(channel int, parNum int, k int) []float64 {
 		return result
 	}
 
-	// 첫번째 채널에 해당하는 필터 만들음
 	for h := 0; h < 32; h++ {
 		for w := 0; w < 32; w++ {
 			if w%k == 0 && h%k == 0 {
@@ -88,12 +87,10 @@ func GeneralFilter(channel int, parNum int, k int) []float64 {
 		}
 	}
 
-	// 그 채널을 channel 만큼 돌림.
 	channelRot := -(1024*(channel/(k*k)) + 32*(channel%(k*k)/k) + (channel % (k * k) % k))
 	result = PlainRot(result, channelRot)
 	// fmt.Println("c : ", channelRot)
 
-	// 그걸 또 parNum 만큼 돌림.
 	parRot := -(32768 / allPar * parNum)
 	result = PlainRot(result, parRot)
 	// fmt.Println("p : ", parRot)
@@ -103,7 +100,7 @@ func GeneralFilter(channel int, parNum int, k int) []float64 {
 func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, params ckks.Parameters) (preCompFilter [][]*rlwe.Plaintext, lastFilter [][]*rlwe.Plaintext) {
 
 	//get ConvMap
-	convMap, _, _ := GetConvMap(convID, depth)
+	convMap, _, _ := GetConvBlueprints(convID, depth)
 
 	// get convFeature
 	convFeatureMap := GetConvFeature(convID)
@@ -136,7 +133,6 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 			////first make mode 1 filter
 			nonSplitFilter := mode1Filter(convMap[treeDepth])
 
-			//// 앞에 있던 mode 0 고려
 			for zeroCheck := treeDepth - 1; zeroCheck > 0; zeroCheck-- {
 				if convMap[zeroCheck][0] == 0 {
 					for t := 0; t < len(nonSplitFilter); t++ {
@@ -147,14 +143,11 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 				}
 			}
 
-			//// stride 고려
 			if convFeatureMap.Stride != 1 {
 				for t := 0; t < len(nonSplitFilter); t++ {
 					nonSplitFilter[t] = multVec(nonSplitFilter[t], StrideFilter(convFeatureMap.K))
 				}
 			}
-
-			//// split 고려
 			splitNum := 0
 			for tempD := len(convMap) - 1; tempD > 0; tempD-- {
 				if convMap[tempD][0] == 3 {
@@ -237,17 +230,17 @@ func mode0Filter(rotIndex int) []float64 {
 
 	if rotIndex > 0 {
 		for i := 0; i < 32768; i++ {
-			if (i/rotIndex)%2 == 0 { //+일 때 여기
+			if (i/rotIndex)%2 == 0 {
 				resultFilter = append(resultFilter, 1)
-			} else { // - 일 때 여기
+			} else {
 				resultFilter = append(resultFilter, 0)
 			}
 		}
 	} else {
 		for i := 0; i < 32768; i++ {
-			if (i/rotIndex)%2 == 0 { //+일 때 여기
+			if (i/rotIndex)%2 == 0 {
 				resultFilter = append(resultFilter, 0)
-			} else { // - 일 때 여기
+			} else {
 				resultFilter = append(resultFilter, 1)
 			}
 		}
@@ -567,7 +560,7 @@ func MakeTxtMulParConvWeight() {
 				modifiedFilePath += "layer0/0/"
 				//For Conv Param
 				if nameSplited[0] == "conv1" {
-					modifiedFilePath += "conv1_weight.txt" //CONV1이라 특이하게 적용.
+					modifiedFilePath += "conv1_weight.txt"
 					makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV1", originalFolderPath+"bn1")
 
 					//For BN1 param
@@ -580,7 +573,7 @@ func MakeTxtMulParConvWeight() {
 		})
 
 		if err != nil {
-			fmt.Println("오류:", err)
+			fmt.Println("error:", err)
 		}
 	}
 
@@ -618,11 +611,11 @@ func makeModifyMulParKernel(inputFilePath, outputFilePath, convID, inputBNPath s
 	}
 
 	var outputKernel [][][]float64
-	for km := 0; km < len(mapFeatures.KernelMap); km++ {
+	for km := 0; km < len(mapFeatures.KernelBP); km++ {
 		outputKernel = append(outputKernel, make([][]float64, 9))
 		for w := 0; w < 9; w++ {
 			outputKernel[km][w] = make([]float64, 0)
-			for _, curKernel := range mapFeatures.KernelMap[km] {
+			for _, curKernel := range mapFeatures.KernelBP[km] {
 				for c := 0; c < len(originalKernel[0]); c++ {
 					for _, x := range multVecAndConst(flattenFilter[w], originalKernel[curKernel][c][w/3][w%3]) {
 						outputKernel[km][w] = append(outputKernel[km][w], x*bnMult[curKernel])
@@ -660,16 +653,16 @@ func makeModifyMulParKernel(inputFilePath, outputFilePath, convID, inputBNPath s
 			for _, value := range outputKernel[km][w] {
 				_, err := fmt.Fprintf(writer, "%.15f\n", value)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "modifyKernel를 파일에 쓰는 도중 오류가 발생했습니다.: %v\n", err)
+					fmt.Fprintf(os.Stderr, "modifyKernel write error: %v\n", err)
 					return
 				}
 			}
 			if err := writer.Flush(); err != nil {
-				fmt.Fprintf(os.Stderr, "modifyKernel를 파일에 쓰는 도중 오류가 발생했습니다.: %v\n", err)
+				fmt.Fprintf(os.Stderr, "modifyKernel write error: %v\n", err)
 				return
 			}
 
-			fmt.Printf("%s : modifyKernel이 저장되었습니다. 길이: %d\n", tempFilePath, len(outputKernel[0][0]))
+			fmt.Printf("%s : modifyKernel saved. length : %d\n", tempFilePath, len(outputKernel[0][0]))
 		}
 	}
 
@@ -677,16 +670,14 @@ func makeModifyMulParKernel(inputFilePath, outputFilePath, convID, inputBNPath s
 
 // Making bn_add. Make bnMult too, but don't save.
 func makeBn(dataWidth, packing int, inputBNPath, outputBNPath string) {
-	// 변수 설정
+
 	var bias, runningMean, runningVar, weight, alpha, bnAdd []float64 //bnMult
 
-	// 변수 가져오기
 	bias = simpleTxtReader(inputBNPath + "_bias.txt")
 	runningMean = simpleTxtReader(inputBNPath + "_running_mean.txt")
 	runningVar = simpleTxtReader(inputBNPath + "_running_var.txt")
 	weight = simpleTxtReader(inputBNPath + "_weight.txt")
 
-	// 출력 파일 만들기
 	// ((x-mean)/root(var+0.00001))*weight+bias => x*alpha + (bias-mean*alpha)
 	// (alpha = weight/root(var+0.00001))
 	for i := 0; i < len(weight); i++ {
@@ -699,21 +690,17 @@ func makeBn(dataWidth, packing int, inputBNPath, outputBNPath string) {
 		bnAdd = append(bnAdd, bias[i]-runningMean[i]*alpha[i])
 	}
 
-	// 패킹
 	bnAdd = packAndCopy(dataWidth, packing, bnAdd)
 	// bnMult = packAndCopy(dataWidth, packing, bnMult)
 
-	// 결과 저장
-
-	// 디렉터리 생성
 	if err := os.MkdirAll(outputBNPath[:len(outputBNPath)-3], 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "디렉터리를 생성할 수 없습니다.: %s\n", outputBNPath)
+		fmt.Fprintf(os.Stderr, "CannotMake Direc: %s\n", outputBNPath)
 		return
 	}
-	// bn_add 저장
+
 	outputFile, err := os.Create(outputBNPath + "_add.txt")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "수정된 bn_add를 저장할 파일을 열 수 없습니다.: %s\n", outputBNPath+"_add.txt")
+		fmt.Fprintf(os.Stderr, "Cannot open modified bn_add: %s\n", outputBNPath+"_add.txt")
 		return
 	}
 	defer outputFile.Close()
@@ -722,16 +709,16 @@ func makeBn(dataWidth, packing int, inputBNPath, outputBNPath string) {
 	for _, value := range bnAdd {
 		_, err := fmt.Fprintf(writer, "%.15f\n", value)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "수정된 bn_add를 파일에 쓰는 도중 오류가 발생했습니다.: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Cannot write modified bn_add: %v\n", err)
 			return
 		}
 	}
 	if err := writer.Flush(); err != nil {
-		fmt.Fprintf(os.Stderr, "수정된 bn_add를 파일에 쓰는 도중 오류가 발생했습니다.: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot write modified bn_add: %v\n", err)
 		return
 	}
 
-	fmt.Printf("%s : 수정된 bn_add가 저장되었습니다. 길이: %d\n", outputBNPath+"_add.txt", len(bnAdd))
+	fmt.Printf("%s : modified bn_add length %d\n", outputBNPath+"_add.txt", len(bnAdd))
 }
 
 func makeModifyKernel(inputFilePath, outputFilePath, convID, inputBNPath string) {
@@ -767,11 +754,11 @@ func makeModifyKernel(inputFilePath, outputFilePath, convID, inputBNPath string)
 	}
 
 	var outputKernel [][][]float64
-	for km := 0; km < len(mapFeatures.KernelMap); km++ {
+	for km := 0; km < len(mapFeatures.KernelBP); km++ {
 		outputKernel = append(outputKernel, make([][]float64, 9))
 		for w := 0; w < 9; w++ {
 			outputKernel[km][w] = make([]float64, 0)
-			for _, curKernel := range mapFeatures.KernelMap[km] {
+			for _, curKernel := range mapFeatures.KernelBP[km] {
 				for c := 0; c < len(originalKernel[0]); c++ {
 					for _, x := range multVecAndConst(flattenFilter[w], originalKernel[curKernel][c][w/3][w%3]) {
 						outputKernel[km][w] = append(outputKernel[km][w], x*bnMult[curKernel])
@@ -809,16 +796,16 @@ func makeModifyKernel(inputFilePath, outputFilePath, convID, inputBNPath string)
 			for _, value := range outputKernel[km][w] {
 				_, err := fmt.Fprintf(writer, "%.15f\n", value)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "modifyKernel를 파일에 쓰는 도중 오류가 발생했습니다.: %v\n", err)
+					fmt.Fprintf(os.Stderr, "modifyKernel write error: %v\n", err)
 					return
 				}
 			}
 			if err := writer.Flush(); err != nil {
-				fmt.Fprintf(os.Stderr, "modifyKernel를 파일에 쓰는 도중 오류가 발생했습니다.: %v\n", err)
+				fmt.Fprintf(os.Stderr, "modifyKernel write error:: %v\n", err)
 				return
 			}
 
-			fmt.Printf("%s : modifyKernel이 저장되었습니다. 길이: %d\n", tempFilePath, len(outputKernel[0][0]))
+			fmt.Printf("%s : modifyKernel write success. length: %d\n", tempFilePath, len(outputKernel[0][0]))
 		}
 	}
 
@@ -848,7 +835,7 @@ func packAndCopy(dataWidth, packing int, inputVector []float64) []float64 {
 func kernelTxtToVector(inputFilePath string) [][][][]float64 {
 	file, err := os.Open(inputFilePath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "파일을 열 수 없습니다.")
+		fmt.Fprintln(os.Stderr, "cannot open file.")
 		os.Exit(1)
 	}
 	defer file.Close()
@@ -878,7 +865,7 @@ func kernelTxtToVector(inputFilePath string) [][][][]float64 {
 					}
 					value, err := strconv.ParseFloat(line, 64)
 					if err != nil {
-						fmt.Fprintln(os.Stderr, "숫자 변환 오류:", err)
+						fmt.Fprintln(os.Stderr, "number trans error:", err)
 						os.Exit(1)
 					}
 					kernelWeight[kn][c][ks1][ks2] = value
@@ -888,7 +875,7 @@ func kernelTxtToVector(inputFilePath string) [][][][]float64 {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "파일 읽기 오류:", err)
+		fmt.Fprintln(os.Stderr, "file read error:", err)
 		os.Exit(1)
 	}
 
@@ -995,7 +982,7 @@ func makeZeroBorderOnes(UDLR []int, sideSize int) [][]float64 {
 func simpleTxtReader(inputFilePath string) []float64 {
 	file, err := os.Open(inputFilePath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "파일을 열 수 없습니다.: %s\n", inputFilePath)
+		fmt.Fprintf(os.Stderr, "cannot open file.: %s\n", inputFilePath)
 		return nil
 	}
 	defer file.Close()
@@ -1009,14 +996,14 @@ func simpleTxtReader(inputFilePath string) []float64 {
 		}
 		num, err := strconv.ParseFloat(line, 64)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "숫자로 변환할 수 없습니다.: %s\n", line)
+			fmt.Fprintf(os.Stderr, "cannot trans numbers.: %s\n", line)
 			continue
 		}
 		returnVector = append(returnVector, num)
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "파일을 읽는 도중 오류가 발생했습니다.: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error during reading: %v\n", err)
 		return nil
 	}
 
@@ -1119,7 +1106,7 @@ func multiplex(input []float64, dataWidth, k int) []float64 {
 func kernelTxtToSlice(inputFilePath string) [][][][]float64 {
 	file, err := os.Open(inputFilePath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "파일을 열 수 없습니다.")
+		fmt.Fprintln(os.Stderr, "cannot open file.")
 		os.Exit(1)
 	}
 	defer file.Close()
@@ -1149,7 +1136,7 @@ func kernelTxtToSlice(inputFilePath string) [][][][]float64 {
 					}
 					value, err := strconv.ParseFloat(line, 64)
 					if err != nil {
-						fmt.Fprintln(os.Stderr, "숫자 변환 오류:", err)
+						fmt.Fprintln(os.Stderr, "number trans error:", err)
 						os.Exit(1)
 					}
 					kernelWeight[kn][c][ks1][ks2] = value
@@ -1159,7 +1146,7 @@ func kernelTxtToSlice(inputFilePath string) [][][][]float64 {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "파일 읽기 오류:", err)
+		fmt.Fprintln(os.Stderr, "file read error:", err)
 		os.Exit(1)
 	}
 

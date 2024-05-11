@@ -31,16 +31,16 @@ func NewRotOptDS(planes int, ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.P
 	rotateNums := []int{}
 	if planes == 16 {
 		rotateNums = []int{
-			1024 - 1, 2048 - 32, //filter 전
-			-2048, 1024, 4096, 1024 * 7, //filter 후
-			8192, // 복사
+			1024 - 1, 2048 - 32,
+			-2048, 1024, 4096, 1024 * 7,
+			8192,
 		}
 
 	} else if planes == 32 {
 		rotateNums = []int{
-			32 - 2, 2048 - 64, //filter 전
-			-1024, -32, 2048, 1024*3 - 32, //filter 후
-			4096, //복사
+			32 - 2, 2048 - 64,
+			-1024, -32, 2048, 1024*3 - 32,
+			4096,
 		}
 
 	}
@@ -59,12 +59,12 @@ func (obj RotOptDS) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	obj.Evaluator.Rescale(tempCipher, tempCipher)
 
 	tempCipher2 := ckks.NewCiphertext(obj.params, ctIn.Degree(), ctIn.Level())
-	//filter 전
+
 	for i := 0; i < 2; i++ {
 		obj.Evaluator.Rotate(tempCipher, obj.rotateNums[i], tempCipher2)
 		obj.Evaluator.Add(tempCipher, tempCipher2, tempCipher)
 	}
-	//filter 후
+
 	for i := 0; i < 4; i++ {
 		if i == 0 {
 			tempCipher2, err := obj.Evaluator.MulRelinNew(tempCipher, obj.preCompFilter[i])
@@ -79,7 +79,7 @@ func (obj RotOptDS) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 			obj.Evaluator.Add(ctOut, tempCipher2, ctOut)
 		}
 	}
-	//복사
+
 	obj.Evaluator.Rotate(ctOut, obj.rotateNums[6], tempCipher)
 	obj.Evaluator.Add(ctOut, tempCipher, ctOut)
 
@@ -90,14 +90,14 @@ func RotOptDSRegister() []int {
 
 	rotateNums := []int{
 		//planes==16
-		1024 - 1, 2048 - 32, //filter 전
-		-2048, 1024, 4096, 1024 * 7, //filter 후
-		8192, // 복사
+		1024 - 1, 2048 - 32,
+		-2048, 1024, 4096, 1024 * 7,
+		8192,
 
 		//planes==32
-		32 - 2, 2048 - 64, //filter 전
-		-1024, -32, 2048, 1024*3 - 32, //filter 후
-		4096, //복사
+		32 - 2, 2048 - 64,
+		-1024, -32, 2048, 1024*3 - 32,
+		4096,
 	}
 
 	return rotateNums

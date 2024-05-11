@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
@@ -540,50 +539,7 @@ func kernelTxtToVector(inputFilePath string) []float64 {
 
 	return floats
 }
-func realConv(dataWidth, dataHeight, channel, kernelSize, kernelNum, stride int, data [][][]float64, kernel [][][][]float64) [][][]float64 {
-	resultWidth := dataWidth / stride
-	resultHeight := dataHeight / stride
-	resultChannel := kernelNum
 
-	result := make([][][]float64, resultChannel)
-	for kn := 0; kn < resultChannel; kn++ {
-		result[kn] = make([][]float64, resultHeight)
-		for i := range result[kn] {
-			result[kn][i] = make([]float64, resultWidth)
-		}
-	}
-
-	for kn := 0; kn < kernelNum; kn++ {
-		for c := 0; c < channel; c++ {
-			// make padding
-			paddedMatrix := make([][]float64, dataHeight+2)
-			for i := range paddedMatrix {
-				paddedMatrix[i] = make([]float64, dataWidth+2)
-			}
-			for i := 0; i < dataHeight; i++ {
-				for j := 0; j < dataWidth; j++ {
-					paddedMatrix[i+1][j+1] = data[c][i][j]
-				}
-			}
-
-			// convolution
-			for i := 1; i < dataHeight+1; i += stride {
-				for j := 1; j < dataWidth+1; j += stride {
-					for k1 := 0; k1 < kernelSize; k1++ {
-						for k2 := 0; k2 < kernelSize; k2++ {
-							result[kn][(i-1)/stride][(j-1)/stride] += paddedMatrix[i-kernelSize/2+k1][j-kernelSize/2+k2] * kernel[kn][c][k1][k2]
-						}
-					}
-				}
-			}
-		}
-	}
-	fmt.Println(result)
-	return result
-}
-func splitWithSpace(str string) []string {
-	return strings.Fields(str)
-}
 func FloatToTxt(filePath string, floats []float64) {
 	// 파일이 이미 존재하는지 확인
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {

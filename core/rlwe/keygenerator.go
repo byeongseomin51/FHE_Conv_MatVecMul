@@ -187,6 +187,21 @@ func (kgen KeyGenerator) GenGaloisKeysNew(galEls []uint64, sk *SecretKey, evkPar
 	return
 }
 
+// ClientGenGaloisKeysNew is a modified func of GenGaloisKeysNew.
+func (kgen KeyGenerator) ClientGenGaloisKeysNew(level int, galEls []uint64, sk *SecretKey, evkParams ...EvaluationKeyParameters) (gks []*GaloisKey) {
+	levelQ, levelP, BaseTwoDecomposition := ResolveEvaluationKeyParameters(kgen.params, evkParams)
+	gks = make([]*GaloisKey, len(galEls))
+
+	// Modified part
+	levelQ = level
+
+	for i, galEl := range galEls {
+		gks[i] = newGaloisKey(kgen.params, levelQ, levelP, BaseTwoDecomposition)
+		kgen.GenGaloisKey(galEl, sk, gks[i])
+	}
+	return
+}
+
 // GenEvaluationKeysForRingSwapNew generates the necessary EvaluationKeys to switch from a standard ring to to a conjugate invariant ring and vice-versa.
 func (kgen KeyGenerator) GenEvaluationKeysForRingSwapNew(skStd, skConjugateInvariant *SecretKey, evkParams ...EvaluationKeyParameters) (stdToci, ciToStd *EvaluationKey) {
 

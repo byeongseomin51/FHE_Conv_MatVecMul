@@ -37,6 +37,7 @@ func NewBsgsDiagMatVecMul(weight [][]float64, N int, nt int, ev *ckks.Evaluator,
 
 	//make n1, n2
 	n1, n2 := FindBsgsSol(N)
+	fmt.Println("Automatic setting : n1=", n1, ", n2=", n2)
 
 	//make d
 	plaind := make([]*rlwe.Plaintext, N)
@@ -66,6 +67,7 @@ func NewParBsgsDiagMatVecMul(weight [][]float64, N int, nt int, pi int, ev *ckks
 	}
 	//make n1, n2
 	n1, n2 := FindParBsgsSol(N, nt, pi)
+	fmt.Println("Automatic setting :n1=", n1, ", n2=", n2)
 
 	//make D
 	d := diagonalized(weight, N, nt)

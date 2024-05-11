@@ -34,13 +34,11 @@ func MakeGraph(eachInts []int, move []int) ([]Node, [][]int, [][][]int) {
 		Nodes = append(Nodes, Node{nodeNum: index + 1, eachInt: each})
 	}
 
-	// 그래프를 초기화합니다.
 	graph := make([][]int, len(Nodes))
 	for i := range graph {
 		graph[i] = make([]int, len(Nodes))
 	}
 
-	// history 그래프를 초기화합니다.
 	Hgraph := make([][][]int, len(Nodes))
 	for i := range graph {
 		Hgraph[i] = make([][]int, len(Nodes))
@@ -49,7 +47,6 @@ func MakeGraph(eachInts []int, move []int) ([]Node, [][]int, [][][]int) {
 		}
 	}
 
-	// 각 노드 간의 거리를 계산하여 그래프에 저장합니다.
 	for i := 0; i < len(Nodes); i++ {
 		for j := i + 1; j < len(Nodes); j++ {
 			distance, history := calculateDistance(Nodes[i].eachInt, Nodes[j].eachInt, move)
@@ -60,7 +57,7 @@ func MakeGraph(eachInts []int, move []int) ([]Node, [][]int, [][][]int) {
 		}
 	}
 
-	// 그래프 출력
+	// print graph
 	// for _, row := range graph {
 	// 	fmt.Println(row)
 	// }
@@ -69,11 +66,11 @@ func MakeGraph(eachInts []int, move []int) ([]Node, [][]int, [][][]int) {
 
 func calculateDistance(a, b int, move []int) (int, []int) {
 	if a == b {
-		return 0, nil // 같은 노드일 경우 거리는 0입니다.
+		return 0, nil
 	}
 	maxDepth := 100
 
-	queue := [][]int{{a, a}} // {Sum value, history}
+	queue := [][]int{{a, a}}
 	visited := make(map[int]bool)
 	depth := 1
 	for len(queue) > 0 {
@@ -110,7 +107,7 @@ func calculateDistance(a, b int, move []int) (int, []int) {
 		}
 	}
 
-	return math.MaxInt32, nil // 거리가 5보다 큰 경우 최대값으로 설정합니다.
+	return math.MaxInt32, nil
 }
 
 func minKey(key []int, mstSet []bool) int {
@@ -155,15 +152,12 @@ func PrimMST(graph [][]int) []int {
 	return parent
 }
 
-// 시작 노드부터 목표 노드까지의 최소 이동 경로를 찾아 반환합니다.
 func findPath(startNode, targetNode int, parent []int) []int {
 	path := []int{targetNode}
 
-	// 목표 노드부터 시작하여 부모 노드를 따라 거슬러 올라갑니다.
 	for parent[targetNode] != -1 {
 		targetNode = parent[targetNode]
 		path = append([]int{targetNode}, path...)
-		//fmt.Println(path) 했을 때 먼가 이상함
 	}
 
 	return path
