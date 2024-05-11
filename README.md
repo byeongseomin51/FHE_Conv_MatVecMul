@@ -33,3 +33,8 @@ These are our arguments option.
 |fc|Apply parallel BSGS matrix-vector multiplication to fully connected layer.|Fig.15|
 |parBSGS|Execution time comparison of parallel BSGS matrix-vector multiplication and BSGS diagonal method. |Fig.15|
 |ALL|If you write ALL or don't write any args, all of the test function will be started.||
+
+## Algorithm    
+All of our algorithms are implemented in mulParModules directory. 
+Especially, convConfig.go correspons to that of APPENDIX A and APPENDIX B.
+(Instead of Hierarchical rotation key system or small level key system, which implemented in hierarchyKey.go and smallLevelKey.go).    
