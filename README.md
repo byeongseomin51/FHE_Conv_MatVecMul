@@ -7,6 +7,8 @@ https://github.com/tuneinsight/lattigo/tree/v5.0.2
 Since Lattigo is based on go language, 
 go language has to be installed to run our program.
 
+Since we have to use Lattigo library to run the code, our implementation's location is fixed at supplementary/examples/rotopt/.    
+
 ## run
 You can run rotation optimized convolution test function as below.     
 ```   
