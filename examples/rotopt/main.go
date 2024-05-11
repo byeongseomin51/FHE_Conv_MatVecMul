@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"rotOptResnet/mulParModules"
+	"rotopt/mulParModules"
 	"sort"
 	"time"
 	"unsafe"

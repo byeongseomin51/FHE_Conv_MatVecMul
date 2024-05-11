@@ -1,4 +1,4 @@
-module rotOptResnet
+module rotopt
 
 go 1.21.6
 
