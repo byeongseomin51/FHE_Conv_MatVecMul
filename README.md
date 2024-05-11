@@ -2,14 +2,17 @@
 This is the supplementary implementation of 'Low-Latency Linear Transformations with Small Key Transmission for Private Neural Network on Homomorphic Encryption.'       
 
 Our implementation is based on lattigo v5.0.2.             
-https://github.com/tuneinsight/lattigo/tree/v5.0.2          
+https://github.com/tuneinsight/lattigo/tree/v5.0.2
+
+Since Lattigo is based on go language, 
+go language has to be installed to run our program.
 
 ## run
 You can run rotation optimized convolution test function as below.     
 ```   
+cd supplementary/examples/rotopt/     
 go mod tidy       
 go build    
-cd supplementary/examples/rotopt/     
 go run . conv      
 ```    
 
