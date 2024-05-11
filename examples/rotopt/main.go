@@ -365,25 +365,6 @@ func MakeGalois(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
 	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
 	return galEls
 }
-func ClientMakeGaloisWithLevel(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
-
-	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
-
-	for level := 0; level < len(rotIndexes); level++ {
-		var galElements []uint64
-		for _, rot := range rotIndexes[level] {
-			galElements = append(galElements, cc.Params.GaloisElement(rot))
-		}
-		galKeys := cc.Kgen.ClientGenGaloisKeysNew(level, galElements, cc.Sk)
-
-		galEls = append(galEls, galKeys)
-
-		fmt.Println(unsafe.Sizeof(*galKeys[0]), unsafe.Sizeof(galKeys[0].GaloisElement), unsafe.Sizeof(galKeys[0].NthRoot), unsafe.Sizeof(galKeys[0].EvaluationKey), unsafe.Sizeof(galKeys[0].GadgetCiphertext), unsafe.Sizeof(galKeys[0].BaseTwoDecomposition), unsafe.Sizeof(galKeys[0].Value))
-	}
-	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
-	return galEls
-}
-
 func rotOptConvTimeTest(layerNum int, cc *customContext) {
 	fmt.Println("RotOptConvTimeTest started!")
 
