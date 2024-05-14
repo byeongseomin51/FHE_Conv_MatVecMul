@@ -12,7 +12,7 @@ Since we have to use Lattigo library to run the code, our implementation's locat
 ## run
 You can run rotation optimized convolution test function as below.     
 ```   
-cd supplementary-main/examples/rotopt/   
+cd examples/rotopt/   
 go run . conv      
 ```    
 
