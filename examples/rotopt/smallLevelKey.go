@@ -77,9 +77,10 @@ func (obj SmallLevelKey) GetKeySize() int {
 	uint64Size := 8 //byte
 	N := obj.N
 	L := obj.MaxMultLevel
-	K := obj.K
+	K := obj.K 
 	dnum := obj.Dnum
 	keySize := uint64Size * N * (L + 1 + K) * 2 * dnum
+
 	return keySize
 }
 

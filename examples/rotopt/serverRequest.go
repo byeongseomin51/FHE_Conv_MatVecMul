@@ -53,6 +53,7 @@ func Level1RotKeyNeededForInference(Level0RotKeyNeeded []int) []int {
 	}
 
 	level0 := Level0RotKeyNeeded
+	fmt.Println("Required Level 0 : ")
 	fmt.Println(level0)
 
 	//Make graph with this.

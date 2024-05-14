@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"rotopt/mulParModules"
 	"sort"
@@ -41,6 +40,7 @@ func main() {
 
 	//basicOperationTimeTest
 	if Contains(args, "basic") || args[0] == "ALL" {
+		fmt.Println("\nBasic operation time test started!")
 		basicOperationTimeTest(context)
 	}
 
@@ -50,8 +50,11 @@ func main() {
 
 	// Convolution Tests
 	if Contains(args, "conv") || args[0] == "ALL" {
-		rotOptConvTimeTest(20, context)
-		mulParConvTimeTest(20, context)
+		// rotOptConvDepth2TimeTest(context)
+		// rotOptConvDepth3TimeTest(context)
+		// rotOptConvDepth4TimeTest(context)
+		// rotOptConvDepth5TimeTest(context)
+		// mulParConvTimeTest(context)
 	}
 
 	// Print Blue Print. Corresponds to Appendix A.
@@ -67,7 +70,7 @@ func main() {
 
 	// RotKey Test
 	if Contains(args, "rotkey") || args[0] == "ALL" {
-		HierarchyKeyTest(20)    //Hierarchical two-level rotation key system.
+		HierarchyKeyTest()      //Hierarchical two-level rotation key system.
 		overallKeyTest(context) //Also apply small level key system.
 	}
 
@@ -76,8 +79,8 @@ func main() {
 	/////////////////////////////////////
 	//Apply to fully connected layer
 	if Contains(args, "fc") || args[0] == "ALL" {
-		parBSGSfullyConnectedAccuracyTest(20, context) //using parallel BSGS matrix-vector multiplication to fully connected layer.
-		mulParfullyConnectedAccuracyTest(20, context)  //conventional
+		parBSGSfullyConnectedAccuracyTest(context) //using parallel BSGS matrix-vector multiplication to fully connected layer.
+		mulParfullyConnectedAccuracyTest(context)  //conventional
 	}
 	if Contains(args, "parBSGS") || args[0] == "ALL" {
 		for N := 32; N <= 512; N *= 2 {
@@ -143,7 +146,8 @@ func getConvTestNum(convID string) []int {
 	return []int{}
 }
 
-func parBSGSfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
+func parBSGSfullyConnectedAccuracyTest(cc *customContext) {
+	fmt.Println("Fully Connected + Parallel BSGS matrix-vector multiplication Test!")
 	startLevel := 1
 	endLevel := cc.Params.MaxLevel()
 	// endLevel := 2
@@ -154,7 +158,7 @@ func parBSGSfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
-	fc := mulParModules.NewParBSGSFC(newEvaluator, cc.Encoder, cc.Params, layerNum)
+	fc := mulParModules.NewParBSGSFC(newEvaluator, cc.Encoder, cc.Params, 20)
 
 	//Make input float data
 	temp := txtToFloat("true_logs/AvgPoolEnd.txt")
@@ -184,7 +188,8 @@ func parBSGSfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
 		endTime := time.Now()
 
 		// Print Elapsed Time
-		fmt.Printf("%v %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		// fmt.Printf("%v %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		fmt.Printf("%v %v \n", level, (endTime.Sub(startTime)))
 
 	}
 
@@ -194,7 +199,8 @@ func parBSGSfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
 	fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
 }
 
-func mulParfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
+func mulParfullyConnectedAccuracyTest(cc *customContext) {
+	fmt.Println("Fully Connected + Conventional BSGS diagonal matrix-vector multiplication Test!")
 	startLevel := 1
 	endLevel := cc.Params.MaxLevel()
 	//register
@@ -204,7 +210,7 @@ func mulParfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
-	fc := mulParModules.NewMulParFC(newEvaluator, cc.Encoder, cc.Params, layerNum)
+	fc := mulParModules.NewMulParFC(newEvaluator, cc.Encoder, cc.Params, 20)
 
 	//Make input float data
 	temp := txtToFloat("true_logs/AvgPoolEnd.txt")
@@ -234,7 +240,8 @@ func mulParfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
 		endTime := time.Now()
 
 		// Print Elapsed Time
-		fmt.Printf("%v %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		// fmt.Printf("%v %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		fmt.Printf("%v %v \n", level, (endTime.Sub(startTime)))
 
 	}
 
@@ -246,6 +253,7 @@ func mulParfullyConnectedAccuracyTest(layerNum int, cc *customContext) {
 }
 
 func rotOptDownSamplingTest(cc *customContext) {
+	fmt.Println("Rotation Optimized Downsampling Test started! ")
 	//register
 	rot := mulParModules.RotOptDSRegister()
 
@@ -258,8 +266,7 @@ func rotOptDownSamplingTest(cc *customContext) {
 
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
-	var outputCt16 *rlwe.Ciphertext
-	var outputCt32 *rlwe.Ciphertext
+
 	for level := 2; level <= cc.Params.MaxLevel(); level++ {
 		// Encryption
 		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -268,39 +275,35 @@ func rotOptDownSamplingTest(cc *customContext) {
 		startTime := time.Now()
 
 		// AvgPooling Foward
-		outputCt16 = ds16.Foward(inputCt)
+		ds16.Foward(inputCt)
 
 		// Timer end
 		endTime := time.Now()
 
 		// Print Elapsed Time
-		// fmt.Printf("%v Time(16) : %v \n", level,TimeDurToFloatSec(endTime.Sub(startTime)))
+		// fmt.Printf("%v Time(DONWSAMP1) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		fmt.Printf("%v Time(DONWSAMP1) : %v \n", level, (endTime.Sub(startTime)))
+
 		// ////////
 		// Timer start
 		startTime = time.Now()
 
 		// AvgPooling Foward
-		outputCt32 = ds32.Foward(inputCt)
+		ds32.Foward(inputCt)
 
 		// Timer end
 		endTime = time.Now()
 
 		// Print Elapsed Time
-		fmt.Printf("%v Time(32) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		// fmt.Printf("%v Time(DOWNSAMP2) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		fmt.Printf("%v Time(DOWNSAMP2) : %v \n", level, (endTime.Sub(startTime)))
+
 	}
 
-	// 	//Decryption
-	outputFloat16 := ciphertextToFloat(outputCt16, cc)
-	outputFloat32 := ciphertextToFloat(outputCt32, cc)
-
-	// //Test
-	fmt.Println("==16==")
-	Count01num(outputFloat16)
-	fmt.Println("\n==32==")
-	Count01num(outputFloat32)
 }
 
 func mulParDownSamplingTest(cc *customContext) {
+	fmt.Println("Multiplexed Parallel Downsampling Test started! ")
 	//register
 	rot := mulParModules.MulParDSRegister()
 
@@ -328,7 +331,9 @@ func mulParDownSamplingTest(cc *customContext) {
 		endTime := time.Now()
 
 		// Print Elapsed Time
-		fmt.Printf("%v Time(16) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		// fmt.Printf("%v Time(16) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		fmt.Printf("%v Time(DOWNSAMP1) : %v \n", level, (endTime.Sub(startTime)))
+
 		// ////////
 		// Timer start
 		startTime = time.Now()
@@ -341,6 +346,8 @@ func mulParDownSamplingTest(cc *customContext) {
 
 		// Print Elapsed Time
 		// fmt.Printf("%v Time(32) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		fmt.Printf("%v Time(DOWNSAMP2) : %v \n", level, (endTime.Sub(startTime)))
+
 	}
 
 	// outputFloat16 := ciphertextToFloat(outputCt16, cc)
@@ -365,23 +372,12 @@ func MakeGalois(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
 	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
 	return galEls
 }
-func rotOptConvTimeTest(layerNum int, cc *customContext) {
-	fmt.Println("RotOptConvTimeTest started!")
 
-	//For log
-	currentTime := time.Now()
-	logFileName := "RotOptLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt"
-	fmt.Println("Logs will be saved in : " + "RotOptLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt")
-	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer logFile.Close()
-	log.SetOutput(logFile)
-	log.SetFlags(0)
+func rotOptConvDepth2TimeTest(cc *customContext) {
+	fmt.Println("\nRotation Optimized Convolution (for 2-depth consumed) time test started!")
 
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	maxDepth := []int{2, 4, 5, 4, 5, 4}
+	maxDepth := []int{2, 2, 2, 2, 2, 2}
 
 	//Set min depth
 	// startDepth := 2
@@ -390,11 +386,10 @@ func rotOptConvTimeTest(layerNum int, cc *customContext) {
 	//Set iter
 	iter := 1
 
-	// minStartCipherLevel := 2
-	minStartCipherLevel := 2
+	// minStartCipherLevel := startDepth
+	minStartCipherLevel := startDepth
 	maxStartCipherLevel := cc.Params.MaxLevel()
 
-	log.Printf("level executionTime\n")
 	fmt.Printf("level executionTime\n")
 	for index := 0; index < len(convIDs); index++ {
 		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
@@ -412,10 +407,9 @@ func rotOptConvTimeTest(layerNum int, cc *customContext) {
 			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 			//make rotOptConv instance
-			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, layerNum, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
-			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, minStartCipherLevel, maxStartCipherLevel, iter)
-			log.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, minStartCipherLevel, maxStartCipherLevel, iter)
+			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
 
 			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
 
@@ -437,28 +431,203 @@ func rotOptConvTimeTest(layerNum int, cc *customContext) {
 				//Print Elapsed Time
 				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
 				fmt.Printf("%v %v \n", startCipherLevel, time)
-				log.Printf("%v %v \n", startCipherLevel, time)
+			}
+		}
+	}
+}
+func rotOptConvDepth3TimeTest(cc *customContext) {
+	fmt.Println("\nRotation Optimized Convolution (for 3-depth consumed) time test started!")
+
+	convIDs := []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	maxDepth := []int{3, 3, 3, 3, 3}
+
+	//Set min depth
+	// startDepth := 2
+	startDepth := 3
+
+	//Set iter
+	iter := 1
+
+	// minStartCipherLevel := startDepth
+	minStartCipherLevel := startDepth
+	maxStartCipherLevel := cc.Params.MaxLevel()
+
+	fmt.Printf("level executionTime\n")
+	for index := 0; index < len(convIDs); index++ {
+		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
+			convID := convIDs[index]
+
+			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
+
+			//register
+			rots := mulParModules.RotOptConvRegister(convID, depth)
+			// for _, r := range rots {
+			// 	fmt.Println(len(r), r)
+			// }
+
+			//rot register
+			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+
+			//make rotOptConv instance
+			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+
+			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
+
+			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+
+				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+				cc.Encoder.Encode(inputRandomVector, plain)
+				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
+				//Timer start
+				startTime := time.Now()
+
+				//Conv Foward
+				for i := 0; i < iter; i++ {
+					conv.Foward(inputCt)
+				}
+
+				//Timer end
+				endTime := time.Now()
+
+				//Print Elapsed Time
+				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
+				fmt.Printf("%v %v \n", startCipherLevel, time)
 
 			}
 		}
 	}
 }
-func mulParConvTimeTest(layerNum int, cc *customContext) {
-	fmt.Println("MulParConvTimeTest stated!")
+func rotOptConvDepth4TimeTest(cc *customContext) {
+	fmt.Println("\nRotation Optimized Convolution (for 4-depth consumed) time test started!")
+
+	convIDs := []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	maxDepth := []int{4, 4, 4, 4, 4}
+
+	//Set min depth
+	// startDepth := 2
+	startDepth := 4
+
+	//Set iter
+	iter := 1
+
+	// minStartCipherLevel := startDepth
+	minStartCipherLevel := startDepth
+	maxStartCipherLevel := cc.Params.MaxLevel()
+
+	fmt.Printf("level executionTime\n")
+	for index := 0; index < len(convIDs); index++ {
+		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
+			convID := convIDs[index]
+
+			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
+
+			//register
+			rots := mulParModules.RotOptConvRegister(convID, depth)
+			// for _, r := range rots {
+			// 	fmt.Println(len(r), r)
+			// }
+
+			//rot register
+			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+
+			//make rotOptConv instance
+			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+
+			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
+
+			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+
+				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+				cc.Encoder.Encode(inputRandomVector, plain)
+				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
+				//Timer start
+				startTime := time.Now()
+
+				//Conv Foward
+				for i := 0; i < iter; i++ {
+					conv.Foward(inputCt)
+				}
+
+				//Timer end
+				endTime := time.Now()
+
+				//Print Elapsed Time
+				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
+				fmt.Printf("%v %v \n", startCipherLevel, time)
+
+			}
+		}
+	}
+}
+func rotOptConvDepth5TimeTest(cc *customContext) {
+	fmt.Println("\nRotation Optimized Convolution (for 5-depth consumed) time test started!")
+
+	convIDs := []string{"CONV3s2", "CONV4s2"}
+	maxDepth := []int{5, 5}
+
+	//Set min depth
+	// startDepth := 2
+	startDepth := 5
+
+	//Set iter
+	iter := 1
+
+	// minStartCipherLevel := startDepth
+	minStartCipherLevel := startDepth
+	maxStartCipherLevel := cc.Params.MaxLevel()
+
+	fmt.Printf("level executionTime\n")
+	for index := 0; index < len(convIDs); index++ {
+		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
+			convID := convIDs[index]
+
+			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
+
+			//register
+			rots := mulParModules.RotOptConvRegister(convID, depth)
+			// for _, r := range rots {
+			// 	fmt.Println(len(r), r)
+			// }
+
+			//rot register
+			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+
+			//make rotOptConv instance
+			conv := mulParModules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+
+			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
+
+			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+
+				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+				cc.Encoder.Encode(inputRandomVector, plain)
+				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
+				//Timer start
+				startTime := time.Now()
+
+				//Conv Foward
+				for i := 0; i < iter; i++ {
+					conv.Foward(inputCt)
+				}
+
+				//Timer end
+				endTime := time.Now()
+
+				//Print Elapsed Time
+				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
+				fmt.Printf("%v %v \n", startCipherLevel, time)
+
+			}
+		}
+	}
+}
+func mulParConvTimeTest(cc *customContext) {
+	fmt.Println("\nMultiplexed Parallel Convolution time test started!")
 
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-
-	//For log
-	currentTime := time.Now()
-	logFileName := "MulParLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt"
-	fmt.Println("Logs will be saved in : " + "MulParLog_" + currentTime.Format("2006-01-02_15-04-05") + ".txt")
-	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer logFile.Close()
-	log.SetOutput(logFile)
-	log.SetFlags(0)
 
 	//Set iter
 	iter := 1
@@ -478,12 +647,10 @@ func mulParConvTimeTest(layerNum int, cc *customContext) {
 		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 		//make mulParConv instance
-		conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Params, layerNum, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+		conv := mulParModules.NewMulParConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
-		log.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
 		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
 
-		log.Printf("level executionTime\n")
 		fmt.Printf("level executionTime\n")
 		for startCipherLevel := minStartCipherLevel; startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
 
@@ -504,7 +671,6 @@ func mulParConvTimeTest(layerNum int, cc *customContext) {
 
 			//Print Elapsed Time
 			time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
-			log.Printf("%v %v \n", startCipherLevel, time)
 			fmt.Printf("%v %v \n", startCipherLevel, time)
 		}
 
@@ -601,20 +767,22 @@ func OrganizeRot(rotIndexes [][]int) [][]int {
 	}
 	return result
 }
-func HierarchyKeyTest(layer int) {
+func HierarchyKeyTest() {
+	fmt.Println("Hierarchical Key system applied Test!")
 	//Organize what kinds of key-level 0 keys needed.
-	mulParRot, rotOptRot := RotKeyOrganize(layer)
+	mulParRot, rotOptRot := RotKeyOrganize(20)
 
 	//For rotOptRot
 	fmt.Println("===Rotation Optimized Convolution Level1 key needed===")
-	fmt.Println(Level1RotKeyNeededForInference(rotOptRot))
+	fmt.Println("T : ", Level1RotKeyNeededForInference(rotOptRot))
 	//For MulPar
 	fmt.Println("====Multiplexed Parallel Convolution Level1 key needed===")
-	fmt.Println(Level1RotKeyNeededForInference(mulParRot))
+	fmt.Println("T : ", Level1RotKeyNeededForInference(mulParRot))
 
 }
 
 func overallKeyTest(cc *customContext) {
+	fmt.Println("Hierarchical Key system, Small level key system applied Test!")
 
 	hdnum := 4.0
 
@@ -663,6 +831,7 @@ func overallKeyTest(cc *customContext) {
 	}
 	linrotOpt = removeDuplicates(linrotOpt)
 
+	fmt.Println("Warning! Key size might be different due to some lattigo automatic parameter setting")
 	// With max Mult Level , 0 key level
 	multMaxkey0 := NewSmallLevelKey(1, 0, cc.Params.MaxLevel(), &cc.Params)
 	eachKeySize := multMaxkey0.GetKeySize()
@@ -698,6 +867,9 @@ func overallKeyTest(cc *customContext) {
 
 // Extract current blueprint
 func getBluePrint() {
+	fmt.Println("Blue Print test started! Display all blueprint for convolution optimized convolutions.")
+	fmt.Println("You can test other blue prints in mulParModules/convConfig.go")
+
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
 	maxDepth := []int{2, 4, 5, 4, 5, 4}
 
@@ -791,12 +963,15 @@ func basicOperationTimeTest(cc *customContext) {
 		newEvaluator.Mul(cipher1, cipher1, cipher1)
 		end3 := time.Now()
 		// newEvaluator.Rescale(cipher1, cipher1)
-		fmt.Println(i, TimeDurToFloatMiliSec(end1.Sub(start1)), TimeDurToFloatMiliSec(end2.Sub(start2)), TimeDurToFloatMiliSec(end3.Sub(start3)))
+		// fmt.Println(i, TimeDurToFloatMiliSec(end1.Sub(start1)), TimeDurToFloatMiliSec(end2.Sub(start2)), TimeDurToFloatMiliSec(end3.Sub(start3)))
+		fmt.Println(i, end1.Sub(start1), end2.Sub(start2), end3.Sub(start3))
 	}
 
 }
 
 func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
+	fmt.Println("Conventional BSGS diagonal matrix-vector multiplication Test!")
+	fmt.Println("matrix : ", N, "x", N, "  vector : ", N, "x", 1)
 	nt := 32768
 
 	fmt.Printf("=== Conevntional (BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
@@ -826,10 +1001,13 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 		outputFloat := ciphertextToFloat(BctOut, cc)
 
 		euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
-		fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		// fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		fmt.Println(level, endTime.Sub(startTime))
 	}
 }
 func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
+	fmt.Println("Parallel BSGS matrix-vector multiplication Test!")
+	fmt.Println("matrix : ", N, "x", N, "  vector : ", N, "x", 1)
 	nt := cc.Params.MaxSlots()
 	pi := 1 //initially setting. (how many identical datas are in single ciphertext)
 
@@ -862,7 +1040,8 @@ func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 		outputFloat := ciphertextToFloat(BctOut, cc)
 
 		euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
-		fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		// fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		fmt.Println(level, endTime.Sub(startTime))
 	}
 }
 func Contains(slice []string, str string) bool {

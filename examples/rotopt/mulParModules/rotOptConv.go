@@ -63,7 +63,7 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 
 	// preCompBNadd generate
 	// filePath = path + "bn" + strconv.Itoa(operationNum) + "_add.txt"
-	preCompBNadd = txtToPlain(ec, filePath, params)
+	// preCompBNadd = txtToPlain(ec, filePath, params)
 
 	// preCompFilter, lastFilter generate
 	preCompFilter, lastFilter = MakeTxtRotOptConvFilter(convID, depth, ec, params)
@@ -223,8 +223,8 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 	}
 
 	//Add bn_add
-	ctOut, err = obj.Evaluator.AddNew(splitedCiphertext[0], obj.preCompBNadd)
-	ErrorPrint(err)
+	// ctOut, err = obj.Evaluator.AddNew(splitedCiphertext[0], obj.preCompBNadd)
+	// ErrorPrint(err)
 
 	return ctOut
 }
@@ -464,8 +464,8 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	}
 
 	//Add bn_add
-	ctOut, err = obj.Evaluator.AddNew(splitedCiphertext[0], obj.preCompBNadd)
-	ErrorPrint(err)
+	// ctOut, err = obj.Evaluator.AddNew(splitedCiphertext[0], obj.preCompBNadd)
+	// ErrorPrint(err)
 
 	return ctOut
 }

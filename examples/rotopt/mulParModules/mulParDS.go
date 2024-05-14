@@ -53,8 +53,8 @@ func NewMulParDS(planes int, ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.P
 		rotCopy = []int{-4096, -8192, -16384}
 	}
 
-	fmt.Println(rotChannel)
-	fmt.Println(rotCopy)
+	// fmt.Println(rotChannel)
+	// fmt.Println(rotCopy)
 	return &MulParDS{
 		Evaluator:      ev,
 		preCompFilters: preCompFilters,

@@ -56,8 +56,8 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 	}
 
 	// preCompBNadd generate
-	filePath = path + "bn" + strconv.Itoa(operationNum) + "_add.txt"
-	preCompBNadd = txtToPlain(ec, filePath, params)
+	// filePath = path + "bn" + strconv.Itoa(operationNum) + "_add.txt"
+	// preCompBNadd = txtToPlain(ec, filePath, params)
 
 	// preCompFilter generate
 	isConv1 := false
