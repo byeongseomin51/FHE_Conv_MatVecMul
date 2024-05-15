@@ -50,11 +50,11 @@ func main() {
 
 	// Convolution Tests
 	if Contains(args, "conv") || args[0] == "ALL" {
-		// rotOptConvDepth2TimeTest(context)
-		// rotOptConvDepth3TimeTest(context)
-		// rotOptConvDepth4TimeTest(context)
-		// rotOptConvDepth5TimeTest(context)
-		// mulParConvTimeTest(context)
+		rotOptConvDepth2TimeTest(context)
+		rotOptConvDepth3TimeTest(context)
+		rotOptConvDepth4TimeTest(context)
+		rotOptConvDepth5TimeTest(context)
+		mulParConvTimeTest(context)
 	}
 
 	// Print Blue Print. Corresponds to Appendix A.
