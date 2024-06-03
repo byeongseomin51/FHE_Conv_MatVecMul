@@ -4,10 +4,9 @@ This is the supplementary implementation of 'Low-Latency Linear Transformations 
 Our implementation is based on lattigo v5.0.2.             
 https://github.com/tuneinsight/lattigo/tree/v5.0.2
 
-Since Lattigo is based on go language, 
-go language(>= 1.18) should be installed to run lattigo v5.0.2.
+Lattigo is based on go language, so go language(>= 1.18) should be installed to run our project.
 
-Since we have to use Lattigo library to run the code, our implementation's location is fixed at supplementary/examples/rotopt/.    
+Since we use Lattigo library to run the code, our implementation's location is fixed at FHE_Conv_MatVecMul/examples/rotopt/.    
 
 ## run
 You can run rotation optimized convolution test function as below.     
