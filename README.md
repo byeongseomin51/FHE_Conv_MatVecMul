@@ -1,10 +1,10 @@
 # Rotation Optimized Convolution and Parallel BSGS matrix-vector multiplication.       
 This is the supplementary implementation of 'Low-Latency Linear Transformations with Small Key Transmission for Private Neural Network on Homomorphic Encryption.'       
 
-Our implementation is based on lattigo v5.0.2.             
+Our implementation is based on lattigo v5.0.2, which is written in Go.             
 https://github.com/tuneinsight/lattigo/tree/v5.0.2
 
-Lattigo is based on go language, so go language(>= 1.18) should be installed to run our project.
+To run this project, please ensure that Go (version 1.18 or higher) is installed on your system.
 
 Since we use Lattigo library to run the code, our implementation's location is fixed at FHE_Conv_MatVecMul/examples/rotopt/.    
 

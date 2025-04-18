@@ -1,4 +1,4 @@
-package mulParModules
+package core
 
 import (
 	"bufio"
