@@ -1,4 +1,4 @@
-package core
+package engine
 
 import (
 	"strconv"
@@ -40,7 +40,7 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 	cf := GetConvFeature(convID)
 
 	// plaintext setting, kernel weight
-	path := "mulParModules/precomputed/mulParConv/kernelWeight/" + strconv.Itoa(resnetLayerNum) + "/" + cf.LayerStr + "/" + strconv.Itoa(blockNum) + "/"
+	path := "engine/precomputed/mulParConv/kernelWeight/" + strconv.Itoa(resnetLayerNum) + "/" + cf.LayerStr + "/" + strconv.Itoa(blockNum) + "/"
 	var preCompKernel [][]*rlwe.Plaintext
 	var preCompBNadd *rlwe.Plaintext
 	var preCompFilter []*rlwe.Plaintext

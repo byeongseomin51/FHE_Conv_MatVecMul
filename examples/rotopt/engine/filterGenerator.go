@@ -1,4 +1,4 @@
-package core
+package engine
 
 import (
 	"bufio"
@@ -326,8 +326,8 @@ func LeftUpFilter(k int, isCONV1 bool) []float64 {
 func MakeTxtRotOptConvWeight() {
 	layerNums := []int{20, 32, 44, 56, 110}
 	for _, layerNum := range layerNums {
-		originalFolderPath := "mulParModules/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/"
-		modifiedFolderPath := "mulParModules/precomputed/rotOptConv/kernelWeight/" + strconv.Itoa(layerNum) + "/"
+		originalFolderPath := "engine/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/"
+		modifiedFolderPath := "engine/precomputed/rotOptConv/kernelWeight/" + strconv.Itoa(layerNum) + "/"
 
 		// Make kernel weight
 		err := filepath.Walk(originalFolderPath, func(path string, info os.FileInfo, err error) error {
@@ -454,8 +454,8 @@ func MakeTxtRotOptConvWeight() {
 func MakeTxtMulParConvWeight() {
 	layerNums := []int{20, 32, 44, 56, 110}
 	for _, layerNum := range layerNums {
-		originalFolderPath := "mulParModules/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/"
-		modifiedFolderPath := "mulParModules/precomputed/mulParConv/kernelWeight/" + strconv.Itoa(layerNum) + "/"
+		originalFolderPath := "engine/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/"
+		modifiedFolderPath := "engine/precomputed/mulParConv/kernelWeight/" + strconv.Itoa(layerNum) + "/"
 
 		// Make kernel weight
 		err := filepath.Walk(originalFolderPath, func(path string, info os.FileInfo, err error) error {

@@ -1,4 +1,4 @@
-package core
+package engine
 
 import (
 	"strconv"
@@ -21,7 +21,7 @@ type MulParFC struct {
 
 func NewMulParFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, layer int) *MulParFC {
 	// fmt.Println("MulParFC : ", layer)
-	path := "mulParModules/precomputed/parFC/" + strconv.Itoa(layer) + "/"
+	path := "engine/precomputed/parFC/" + strconv.Itoa(layer) + "/"
 
 	//declare
 	weights := make([][]float64, 10)

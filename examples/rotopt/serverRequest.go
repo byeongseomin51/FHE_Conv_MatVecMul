@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"rotopt/core"
+	"rotopt/engine"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
@@ -96,7 +96,7 @@ func RotKeyOrganize(layer int) ([]int, []int) {
 
 	// Get RotOptConv all rotation index
 	for i := 0; i < len(convIDs); i++ {
-		rots := core.RotOptConvRegister(convIDs[i], maxDepth[i])
+		rots := engine.RotOptConvRegister(convIDs[i], maxDepth[i])
 		for level := 0; level < maxDepthVal+1; level++ {
 			for _, each := range rots[level] {
 				rotOptRot[level] = append(rotOptRot[level], each)
@@ -127,7 +127,7 @@ func RotKeyOrganize(layer int) ([]int, []int) {
 	// Get MulParConv all rotation index
 	mulParRot := make([][]int, 3)
 	for i := 0; i < len(convIDs); i++ {
-		rots := core.MulParConvRegister(convIDs[i])
+		rots := engine.MulParConvRegister(convIDs[i])
 		for level := 0; level < maxDepthVal+1; level++ {
 			for _, each := range rots[level] {
 				mulParRot[level] = append(mulParRot[level], each)

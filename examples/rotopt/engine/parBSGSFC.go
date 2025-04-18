@@ -1,4 +1,4 @@
-package core
+package engine
 
 import (
 	"math"
@@ -30,7 +30,7 @@ func NewParBSGSFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, 
 	pi := 16
 
 	// fmt.Println("ParBSGSFC : ", layer)
-	path := "mulParModules/precomputed/resnetPtParam/" + strconv.Itoa(layer) + "/"
+	path := "engine/precomputed/resnetPtParam/" + strconv.Itoa(layer) + "/"
 
 	//declare
 	A := make([][]float64, 64)

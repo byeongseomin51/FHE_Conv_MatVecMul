@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"rotopt/core"
+	"rotopt/engine"
 	"sort"
 	"time"
 	"unsafe"
@@ -152,13 +152,13 @@ func parBSGSfullyConnectedAccuracyTest(cc *customContext) {
 	endLevel := cc.Params.MaxLevel()
 	// endLevel := 2
 	//register
-	rot := core.ParBSGSFCRegister()
+	rot := engine.ParBSGSFCRegister()
 
 	//rot register
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
-	fc := core.NewParBSGSFC(newEvaluator, cc.Encoder, cc.Params, 20)
+	fc := engine.NewParBSGSFC(newEvaluator, cc.Encoder, cc.Params, 20)
 
 	//Make input float data
 	temp := txtToFloat("true_logs/AvgPoolEnd.txt")
@@ -204,13 +204,13 @@ func mulParfullyConnectedAccuracyTest(cc *customContext) {
 	startLevel := 1
 	endLevel := cc.Params.MaxLevel()
 	//register
-	rot := core.MulParFCRegister()
+	rot := engine.MulParFCRegister()
 
 	//rot register
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
-	fc := core.NewMulParFC(newEvaluator, cc.Encoder, cc.Params, 20)
+	fc := engine.NewMulParFC(newEvaluator, cc.Encoder, cc.Params, 20)
 
 	//Make input float data
 	temp := txtToFloat("true_logs/AvgPoolEnd.txt")
@@ -255,14 +255,14 @@ func mulParfullyConnectedAccuracyTest(cc *customContext) {
 func rotOptDownSamplingTest(cc *customContext) {
 	fmt.Println("Rotation Optimized Downsampling Test started! ")
 	//register
-	rot := core.RotOptDSRegister()
+	rot := engine.RotOptDSRegister()
 
 	//rot register
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
-	ds16 := core.NewRotOptDS(16, newEvaluator, cc.Encoder, cc.Params)
-	ds32 := core.NewRotOptDS(32, newEvaluator, cc.Encoder, cc.Params)
+	ds16 := engine.NewRotOptDS(16, newEvaluator, cc.Encoder, cc.Params)
+	ds32 := engine.NewRotOptDS(32, newEvaluator, cc.Encoder, cc.Params)
 
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
@@ -305,14 +305,14 @@ func rotOptDownSamplingTest(cc *customContext) {
 func mulParDownSamplingTest(cc *customContext) {
 	fmt.Println("Multiplexed Parallel Downsampling Test started! ")
 	//register
-	rot := core.MulParDSRegister()
+	rot := engine.MulParDSRegister()
 
 	//rot register
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 
 	//make avgPooling instance
-	ds16 := core.NewMulParDS(16, newEvaluator, cc.Encoder, cc.Params)
-	ds32 := core.NewMulParDS(32, newEvaluator, cc.Encoder, cc.Params)
+	ds16 := engine.NewMulParDS(16, newEvaluator, cc.Encoder, cc.Params)
+	ds32 := engine.NewMulParDS(32, newEvaluator, cc.Encoder, cc.Params)
 
 	//Make input float data
 	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
@@ -398,7 +398,7 @@ func rotOptConvDepth2TimeTest(cc *customContext) {
 			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
 
 			//register
-			rots := core.RotOptConvRegister(convID, depth)
+			rots := engine.RotOptConvRegister(convID, depth)
 			// for _, r := range rots {
 			// 	fmt.Println(len(r), r)
 			// }
@@ -407,7 +407,7 @@ func rotOptConvDepth2TimeTest(cc *customContext) {
 			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 			//make rotOptConv instance
-			conv := core.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
 			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
 
@@ -460,7 +460,7 @@ func rotOptConvDepth3TimeTest(cc *customContext) {
 			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
 
 			//register
-			rots := core.RotOptConvRegister(convID, depth)
+			rots := engine.RotOptConvRegister(convID, depth)
 			// for _, r := range rots {
 			// 	fmt.Println(len(r), r)
 			// }
@@ -469,7 +469,7 @@ func rotOptConvDepth3TimeTest(cc *customContext) {
 			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 			//make rotOptConv instance
-			conv := core.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
 			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
 
@@ -523,7 +523,7 @@ func rotOptConvDepth4TimeTest(cc *customContext) {
 			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
 
 			//register
-			rots := core.RotOptConvRegister(convID, depth)
+			rots := engine.RotOptConvRegister(convID, depth)
 			// for _, r := range rots {
 			// 	fmt.Println(len(r), r)
 			// }
@@ -532,7 +532,7 @@ func rotOptConvDepth4TimeTest(cc *customContext) {
 			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 			//make rotOptConv instance
-			conv := core.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
 			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
 
@@ -586,7 +586,7 @@ func rotOptConvDepth5TimeTest(cc *customContext) {
 			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
 
 			//register
-			rots := core.RotOptConvRegister(convID, depth)
+			rots := engine.RotOptConvRegister(convID, depth)
 			// for _, r := range rots {
 			// 	fmt.Println(len(r), r)
 			// }
@@ -595,7 +595,7 @@ func rotOptConvDepth5TimeTest(cc *customContext) {
 			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 			//make rotOptConv instance
-			conv := core.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
 			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
 
@@ -641,13 +641,13 @@ func mulParConvTimeTest(cc *customContext) {
 		inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
 
 		//register
-		rots := core.MulParConvRegister(convID)
+		rots := engine.MulParConvRegister(convID)
 
 		//rot register
 		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 		//make mulParConv instance
-		conv := core.NewMulParConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+		conv := engine.NewMulParConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
 		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
 
@@ -793,8 +793,8 @@ func overallKeyTest(cc *customContext) {
 	mulPar := make([][]int, 3)
 	rotOpt := make([][]int, 3)
 	for index := 0; index < len(convIDs); index++ {
-		mulParRot := core.MulParConvRegister(convIDs[index])
-		rotOptRot := core.RotOptConvRegister(convIDs[index], maxDepth[index])
+		mulParRot := engine.MulParConvRegister(convIDs[index])
+		rotOptRot := engine.RotOptConvRegister(convIDs[index], maxDepth[index])
 
 		for i := 0; i < 3; i++ {
 			for _, each := range mulParRot[i] {
@@ -868,7 +868,7 @@ func overallKeyTest(cc *customContext) {
 // Extract current blueprint
 func getBluePrint() {
 	fmt.Println("Blue Print test started! Display all blueprint for convolution optimized convolutions.")
-	fmt.Println("You can test other blue prints in core/convConfig.go")
+	fmt.Println("You can test other blue prints in engine/convConfig.go")
 
 	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
 	maxDepth := []int{2, 4, 5, 4, 5, 4}
@@ -876,7 +876,7 @@ func getBluePrint() {
 	for index := 0; index < len(convIDs); index++ {
 		for depth := 2; depth <= maxDepth[index]; depth++ {
 			fmt.Printf("=== convID : %s, depth : %v === \n", convIDs[index], depth)
-			convMap, _, _ := core.GetConvBlueprints(convIDs[index], depth)
+			convMap, _, _ := engine.GetConvBlueprints(convIDs[index], depth)
 			rotSumBP := make([][]int, 1)
 			rotSumBP[0] = []int{0}
 			crossCombineBP := make([]int, 0)
@@ -921,7 +921,7 @@ func getBluePrint() {
 
 			fmt.Println("KernelBP : ")
 			fmt.Print("[")
-			for _, row := range core.GetMulParConvFeature(convIDs[index]).KernelBP {
+			for _, row := range engine.GetMulParConvFeature(convIDs[index]).KernelBP {
 				fmt.Print("[")
 				for i, val := range row {
 					if i > 0 {
@@ -986,9 +986,9 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	B1d := make2dTo1d(B)
 	B1d = resize(B1d, nt)
 	//start mat vec mul
-	rot := core.BsgsDiagMatVecMulRegister(N)
+	rot := engine.BsgsDiagMatVecMulRegister(N)
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
-	matVecMul := core.NewBsgsDiagMatVecMul(A, N, nt, newEvaluator, cc.Encoder, cc.Params)
+	matVecMul := engine.NewBsgsDiagMatVecMul(A, N, nt, newEvaluator, cc.Encoder, cc.Params)
 
 	fmt.Printf("level executionTime(sec)\n")
 	for level := 1; level <= cc.Params.MaxLevel(); level++ {
@@ -1025,9 +1025,9 @@ func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 		B1d = add(tempB, B1d)
 	}
 	//start mat vec mul
-	rot := core.ParBsgsDiagMatVecMulRegister(N, nt, pi)
+	rot := engine.ParBsgsDiagMatVecMulRegister(N, nt, pi)
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
-	matVecMul := core.NewParBsgsDiagMatVecMul(A, N, nt, pi, newEvaluator, cc.Encoder, cc.Params)
+	matVecMul := engine.NewParBsgsDiagMatVecMul(A, N, nt, pi, newEvaluator, cc.Encoder, cc.Params)
 
 	fmt.Printf("level executionTime(sec)\n")
 	for level := 1; level <= cc.Params.MaxLevel(); level++ {
