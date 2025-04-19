@@ -50,10 +50,10 @@ func main() {
 
 	// Convolution Tests
 	if Contains(args, "conv") || args[0] == "ALL" {
-		// rotOptConvTimeTest(context, 2)
-		// rotOptConvTimeTest(context, 3)
-		// rotOptConvTimeTest(context, 4)
-		// rotOptConvTimeTest(context, 5)
+		rotOptConvTimeTest(context, 2)
+		rotOptConvTimeTest(context, 3)
+		rotOptConvTimeTest(context, 4)
+		rotOptConvTimeTest(context, 5)
 		mulParConvTimeTest(context)
 	}
 
@@ -144,21 +144,35 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 	for index := 0; index < len(convIDs); index++ {
 		for d := depth; d <= maxDepth[index]; d++ {
 			convID := convIDs[index]
-			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
 
 			//register index of rotation
 			rots := engine.RotOptConvRegister(convID, d)
+
 			//rotation key register
 			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 			//make rotOptConv instance
 			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, d, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
+			// Make input and kernel
+			cf := conv.ConvFeature
+			plainInput := makeRandomInput(cf.InputDataChannel, cf.InputDataHeight, cf.InputDataWidth)
+			plainKernel := makeRandomKernel(cf.KernelNumber, cf.InputDataChannel, cf.KernelSize, cf.KernelSize)
+
+			//Plaintext Convolution
+			plainOutput := PlainConvolution2D(plainInput, plainKernel, cf.Stride, 1)
+
+			// Encrypt Input, Encode Kernel
+			mulParPackedInput := MulParPacking(plainInput, cf, cc)
+			conv.PreCompKernels = EncodeKernel(plainKernel, cf, cc)
+
 			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, d, Max(minStartCipherLevel, d), maxStartCipherLevel, iter)
 			fmt.Printf("startLevel executionTime(sec)\n")
+			// MSE, RE, inf Norm
+			var MSEList, REList, infNormList []float64
 			for startCipherLevel := Max(minStartCipherLevel, d); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
 				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
-				cc.Encoder.Encode(inputRandomVector, plain)
+				cc.Encoder.Encode(mulParPackedInput, plain)
 				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
 
 				var totalForwardTime time.Duration
@@ -166,18 +180,31 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 				for i := 0; i < iter; i++ {
 					//Convolution start
 					start := time.Now()
-					conv.Foward(inputCt)
+					encryptedOutput := conv.Foward(inputCt)
 					end := time.Now()
 					totalForwardTime += end.Sub(start)
 
-					//Acc, F1 score, recall
-
+					//Acc, Recall, F1 score
+					FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
+					scores := MSE_RE_infNorm(plainOutput, FHEOutput)
+					MSEList = append(MSEList, scores[0])
+					REList = append(REList, scores[1])
+					infNormList = append(infNormList, scores[2])
 				}
 
 				//Print Elapsed Time
 				avgForwardTime := float64(totalForwardTime.Nanoseconds()) / float64(iter) / 1e9
 				fmt.Printf("%v %v \n", startCipherLevel, avgForwardTime)
 			}
+			// Average Acc, Recall, F1 score
+			MSEMin, MSEMax, MSEAvg := minMaxAvg(MSEList)
+			REMin, REMax, REAvg := minMaxAvg(REList)
+			infNormMin, infNormMax, infNormAvg := minMaxAvg(infNormList)
+
+			fmt.Printf("MSE (Mean Squared Error)   : Min = %.2e, Max = %.2e, Avg = %.2e\n", MSEMin, MSEMax, MSEAvg)
+			fmt.Printf("Relative Error             : Min = %.2e, Max = %.2e, Avg = %.2e\n", REMin, REMax, REAvg)
+			fmt.Printf("Infinity Norm (L-infinity) : Min = %.2e, Max = %.2e, Avg = %.2e\n", infNormMin, infNormMax, infNormAvg)
+			fmt.Println()
 		}
 	}
 }
@@ -195,10 +222,10 @@ func mulParConvTimeTest(cc *customContext) {
 	for index := 0; index < len(convIDs); index++ {
 		convID := convIDs[index]
 
-		//register
+		//register index of rotation
 		rots := engine.MulParConvRegister(convID)
 
-		//rot register
+		//rotation key register
 		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
 		//make mulParConv instance

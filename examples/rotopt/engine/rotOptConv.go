@@ -2,7 +2,6 @@ package engine
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
@@ -16,7 +15,7 @@ type RotOptConv struct {
 
 	Evaluator           *ckks.Evaluator
 	params              ckks.Parameters
-	preCompKernels      [][]*rlwe.Plaintext
+	PreCompKernels      [][]*rlwe.Plaintext
 	preCompFilters      [][]*rlwe.Plaintext
 	lastFilter          [][]*rlwe.Plaintext
 	lastFilterTreeDepth int
@@ -44,24 +43,8 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 	cf := GetRotOptConvFeature(convID)
 
 	// plaintext setting, kernel weight
-	path := "engine/precomputed/rotOptConv/kernelWeight/" + strconv.Itoa(resnetLayerNum) + "/" + cf.LayerStr + "/" + strconv.Itoa(blockNum) + "/"
-	var preCompKernels [][]*rlwe.Plaintext
 	var preCompFilters [][]*rlwe.Plaintext
 	var lastFilter [][]*rlwe.Plaintext
-
-	// preCompKernels generate
-	filePath := path + "conv" + strconv.Itoa(operationNum) + "_weight"
-	for i := 0; i < len(cf.KernelBP); i++ {
-		var temp []*rlwe.Plaintext
-		for j := 0; j < 9; j++ {
-			temp = append(temp, txtToPlain(ec, filePath+strconv.Itoa(i)+"_"+strconv.Itoa(j)+".txt", params))
-		}
-		preCompKernels = append(preCompKernels, temp)
-	}
-
-	// preCompBNadd generate
-	// filePath = path + "bn" + strconv.Itoa(operationNum) + "_add.txt"
-	// preCompBNadd = txtToPlain(ec, filePath, params)
 
 	// preCompFilters, lastFilter generate
 	preCompFilters, lastFilter = MakeTxtRotOptConvFilter(convID, depth, ec, params)
@@ -106,7 +89,6 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 
 		Evaluator:           ev,
 		params:              params,
-		preCompKernels:      preCompKernels,
 		preCompFilters:      preCompFilters,
 		lastFilter:          lastFilter,
 		lastFilterTreeDepth: lastFilterLocate,
@@ -142,10 +124,10 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 	// conv
 	var splitedCiphertext []*rlwe.Ciphertext
 	for i := 0; i < obj.ConvFeature.q; i++ {
-		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernels[i][0])
+		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.PreCompKernels[i][0])
 		ErrorPrint(err)
 		for w := 1; w < 9; w++ {
-			tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.preCompKernels[i][w])
+			tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.PreCompKernels[i][w])
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(kernelResult, tempCt, kernelResult)
 			ErrorPrint(err)
@@ -215,15 +197,11 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 			err = obj.Evaluator.Add(splitedCiphertext[0], mainCipher, splitedCiphertext[0])
 			ErrorPrint(err)
 		} else {
-			fmt.Println("Something wrong.. in conv.")
+			fmt.Println("Something wrong.. in RotOptConv.")
 		}
 	}
 
-	//Add bn_add
-	// ctOut, err = obj.Evaluator.AddNew(splitedCiphertext[0], obj.preCompBNadd)
-	// ErrorPrint(err)
-
-	return ctOut
+	return splitedCiphertext[0]
 }
 func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	if obj.depth == 2 {
@@ -265,11 +243,11 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 					//SISO convolution
 					curKernel := startKernel + d1*obj.dacToFor[1]*obj.dacToFor[2] + d2*obj.dacToFor[2] + d3
 
-					kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernels[curKernel][0])
+					kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.PreCompKernels[curKernel][0])
 					ErrorPrint(err)
 
 					for w := 1; w < 9; w++ {
-						tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.preCompKernels[curKernel][w])
+						tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.PreCompKernels[curKernel][w])
 						ErrorPrint(err)
 
 						err = obj.Evaluator.Add(kernelResult, tempCt, kernelResult)
