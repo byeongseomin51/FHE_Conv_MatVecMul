@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/bits"
 	"math/rand"
 	"os"
+	"rotopt/engine"
 	"strconv"
 	"time"
 
@@ -46,22 +48,22 @@ func Count01num(arr []float64) {
 		} else if (currentZero == false) && (cur != 0.0) {
 			count++
 		} else {
-			if currentZero { //0이였었는데 1이 나옴
+			if currentZero {
 				currentZero = false
 				fmt.Printf("0 : %v\n", count)
 				count = 1
-			} else { //1이였었는데 0이 나옴
+			} else {
 				currentZero = true
 				fmt.Printf("1 : %v\n", count)
 				count = 1
 			}
 		}
 	}
-	if currentZero { //0이였었는데 1이 나옴
+	if currentZero {
 		currentZero = false
 		fmt.Printf("0 : %v\n", count)
 		count = 0
-	} else { //1이였었는데 0이 나옴
+	} else {
 		currentZero = true
 		fmt.Printf("1 : %v\n", count)
 		count = 0
@@ -94,9 +96,9 @@ func makeRandomPlain(length int, encoder ckks.Encoder, pt *rlwe.Plaintext) {
 
 }
 func floatToTxt(filePath string, floats []float64) {
-	// 파일이 이미 존재하는지 확인
+
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// 파일이 존재하지 않으면 생성
+
 		file, err := os.Create(filePath)
 		if err != nil {
 			fmt.Println(err)
@@ -104,9 +106,8 @@ func floatToTxt(filePath string, floats []float64) {
 		}
 		defer file.Close()
 
-		// float 배열의 각 값 저장
 		for _, val := range floats {
-			// float 값을 문자열로 변환하여 파일에 쓰기
+
 			_, err := file.WriteString(fmt.Sprintf("%.15f\n", val))
 			if err != nil {
 				fmt.Println(err)
@@ -116,7 +117,7 @@ func floatToTxt(filePath string, floats []float64) {
 
 		fmt.Printf("File '%s' created successfully.\n", filePath)
 	} else {
-		// 파일이 존재하지 않으면 생성
+
 		file, err := os.Create(filePath)
 		if err != nil {
 			fmt.Println(err)
@@ -124,9 +125,8 @@ func floatToTxt(filePath string, floats []float64) {
 		}
 		defer file.Close()
 
-		// float 배열의 각 값 저장
 		for _, val := range floats {
-			// float 값을 문자열로 변환하여 파일에 쓰기
+
 			_, err := file.WriteString(fmt.Sprintf("%.15f\n", val))
 			if err != nil {
 				fmt.Println(err)
@@ -144,20 +144,36 @@ func makeRandomFloat(length int) []float64 {
 	}
 	return valuesWant
 }
-func makeRandomData(width, height, channel int) [][][]float64 {
-	// 벡터 생성
+func makeRandomInput(channel, height, width int) [][][]float64 {
 	randomVector := make([][][]float64, channel)
 	for d := 0; d < channel; d++ {
 		randomVector[d] = make([][]float64, height)
 		for i := 0; i < height; i++ {
 			randomVector[d][i] = make([]float64, width)
 			for j := 0; j < width; j++ {
-				randomVector[d][i][j] = float64(rand.Intn(256))
+				randomVector[d][i][j] = sampling.RandFloat64(-1, 1)
 			}
 		}
 	}
 
 	return randomVector
+}
+
+func makeRandomKernel(outChannel, inChannel, kernelHeight, kernelWidth int) [][][][]float64 {
+	kernel := make([][][][]float64, outChannel)
+	for o := 0; o < outChannel; o++ {
+		kernel[o] = make([][][]float64, inChannel)
+		for i := 0; i < inChannel; i++ {
+			kernel[o][i] = make([][]float64, kernelHeight)
+			for h := 0; h < kernelHeight; h++ {
+				kernel[o][i][h] = make([]float64, kernelWidth)
+				for w := 0; w < kernelWidth; w++ {
+					kernel[o][i][h][w] = sampling.RandFloat64(-1, 1)
+				}
+			}
+		}
+	}
+	return kernel
 }
 
 func convertComplexToFloat(slice []complex128) []float64 {
@@ -211,78 +227,82 @@ func generateEmptyBigFloatArray(length int) []*big.Float {
 
 	return arr
 }
-func Convolution3D(inputImage [][][]float64, filter [][][]float64, stride int) [][]float64 {
-	// 입력 이미지와 필터의 크기 계산
-	imageDepth, imageRows, imageCols := len(inputImage), len(inputImage[0]), len(inputImage[0][0])
-	filterDepth, filterRows, filterCols := len(filter), len(filter[0]), len(filter[0][0])
 
-	// 결과 이미지 크기 계산
-	resultRows := (imageRows-filterRows)/stride + 1
-	resultCols := (imageCols-filterCols)/stride + 1
+// ZeroPad pads the input tensor with zeros
+func ZeroPad(input [][][]float64, pad int) [][][]float64 {
+	inChannels := len(input)
+	inHeight := len(input[0])
+	inWidth := len(input[0][0])
+	paddedHeight := inHeight + 2*pad
+	paddedWidth := inWidth + 2*pad
 
-	// 결과 이미지 초기화
-	result := make([][]float64, resultRows)
-	for i := range result {
-		result[i] = make([]float64, resultCols)
-	}
-
-	// 3D 컨볼루션 연산 수행
-	for i := 0; i < resultRows; i++ {
-		for j := 0; j < resultCols; j++ {
-			// 각 채널별로 컨볼루션 연산 수행
-			for d := 0; d < imageDepth; d++ {
-				for k := 0; k < filterDepth; k++ {
-					for l := 0; l < filterRows; l++ {
-						for m := 0; m < filterCols; m++ {
-							result[i][j] += inputImage[d][i*stride+l][j*stride+m] * filter[k][l][m]
-						}
-					}
+	padded := make([][][]float64, inChannels)
+	for c := 0; c < inChannels; c++ {
+		padded[c] = make([][]float64, paddedHeight)
+		for i := 0; i < paddedHeight; i++ {
+			padded[c][i] = make([]float64, paddedWidth)
+			for j := 0; j < paddedWidth; j++ {
+				// Center part is the original input
+				if i >= pad && i < pad+inHeight && j >= pad && j < pad+inWidth {
+					padded[c][i][j] = input[c][i-pad][j-pad]
+				} else {
+					padded[c][i][j] = 0.0
 				}
 			}
 		}
 	}
-
-	return result
+	return padded
 }
 
-func Convolution3DMulKernels(inputImage [][][]float64, kernels [][][][]float64, stride int) [][][]float64 {
-	// 입력 이미지와 커널의 크기 계산
-	imageDepth, imageRows, imageCols := len(inputImage), len(inputImage[0]), len(inputImage[0][0])
-	kernelDepth, kernelRows, kernelCols, numKernels := len(kernels[0]), len(kernels[0][0]), len(kernels[0][0][0]), len(kernels)
+// Conv2d with stride and padding
+func PlainConvolution2D(input [][][]float64, kernel [][][][]float64, stride, pad int) [][][]float64 {
+	inChannels := len(input)
+	inHeight := len(input[0])
+	inWidth := len(input[0][0])
 
-	// 결과 이미지 크기 계산
-	resultRows := (imageRows-kernelRows)/stride + 1
-	resultCols := (imageCols-kernelCols)/stride + 1
+	outChannels := len(kernel)
+	kernelHeight := len(kernel[0][0])
+	kernelWidth := len(kernel[0][0][0])
 
-	// 결과 이미지 초기화
-	result := make([][][]float64, numKernels)
-	for i := range result {
-		result[i] = make([][]float64, resultRows)
-		for j := range result[i] {
-			result[i][j] = make([]float64, resultCols)
+	// Apply padding
+	paddedInput := ZeroPad(input, pad)
+	paddedHeight := inHeight + 2*pad
+	paddedWidth := inWidth + 2*pad
+
+	// Output size
+	outHeight := (paddedHeight-kernelHeight)/stride + 1
+	outWidth := (paddedWidth-kernelWidth)/stride + 1
+
+	// Initialize output
+	output := make([][][]float64, outChannels)
+	for oc := 0; oc < outChannels; oc++ {
+		output[oc] = make([][]float64, outHeight)
+		for i := 0; i < outHeight; i++ {
+			output[oc][i] = make([]float64, outWidth)
 		}
 	}
 
-	// 3D 컨볼루션 연산 수행
-	for k := 0; k < numKernels; k++ {
-		for i := 0; i < resultRows; i++ {
-			for j := 0; j < resultCols; j++ {
-				// 각 채널별로 컨볼루션 연산 수행
-				for d := 0; d < imageDepth; d++ {
-					for l := 0; l < kernelDepth; l++ {
-						for m := 0; m < kernelRows; m++ {
-							for n := 0; n < kernelCols; n++ {
-								result[k][i][j] += inputImage[d][i*stride+m][j*stride+n] * kernels[k][l][m][n]
-							}
+	// Convolution
+	for oc := 0; oc < outChannels; oc++ {
+		for i := 0; i < outHeight; i++ {
+			for j := 0; j < outWidth; j++ {
+				sum := 0.0
+				for ic := 0; ic < inChannels; ic++ {
+					for kh := 0; kh < kernelHeight; kh++ {
+						for kw := 0; kw < kernelWidth; kw++ {
+							h := i*stride + kh
+							w := j*stride + kw
+							sum += paddedInput[ic][h][w] * kernel[oc][ic][kh][kw]
 						}
 					}
 				}
+				output[oc][i][j] = sum
 			}
 		}
 	}
-
-	return result
+	return output
 }
+
 func sample1DComplex(arr []complex128, start int, end int) {
 	for i := start; i < end; i++ {
 		fmt.Printf("%v ", arr[i])
@@ -319,7 +339,6 @@ func print1DArray(arr []float64) {
 	fmt.Println()
 }
 
-// 2차원 float 배열 출력 함수
 func print2DArray(arr [][]float64) {
 	for i := 0; i < len(arr); i++ {
 		for j := 0; j < len(arr[i]); j++ {
@@ -329,7 +348,6 @@ func print2DArray(arr [][]float64) {
 	}
 }
 
-// 3차원 float 배열 출력 함수
 func print3DArray(arr [][][]float64) {
 	for i := 0; i < len(arr); i++ {
 		fmt.Printf("Layer %d:\n", i+1)
@@ -361,38 +379,185 @@ func print4DArray(arr [][][][]float64) {
 }
 func flatten(input [][][]float64) []float64 {
 	var result []float64
-	for zz := 0; zz < len(input); zz++ {
-		for yy := 0; yy < len(input[0]); yy++ {
-			for xx := 0; xx < len(input[0][0]); xx++ {
-				result = append(result, input[zz][yy][xx])
+	for c := 0; c < len(input); c++ {
+		for h := 0; h < len(input[0]); h++ {
+			for w := 0; w < len(input[0][0]); w++ {
+				result = append(result, input[c][h][w])
 			}
 		}
 	}
 	return result
 }
-func packingWithWidth(input []float64, dataWidth int, k int) []float64 {
+func flatten2d(input [][]float64) []float64 {
+	var result []float64
+
+	for yy := 0; yy < len(input); yy++ {
+		for xx := 0; xx < len(input[0]); xx++ {
+			result = append(result, input[yy][xx])
+		}
+	}
+
+	return result
+}
+
+// Multiplexed-parllel packed the input
+func MulParPacking(input3d [][][]float64, cf *engine.ConvFeature, cc *customContext) []float64 {
+	k := cf.K
+
+	inputChannel := len(input3d)
+	inputHeight := len(input3d[0])
+	inputWidth := len(input3d[0][0])
+
+	outputChannel := inputChannel / (k * k)
+	outputHeight := inputHeight * k
+	outputWidth := inputWidth * k
+
+	// Initialize output3d
+	output3d := make([][][]float64, outputChannel)
+	for c := 0; c < outputChannel; c++ {
+		output3d[c] = make([][]float64, outputHeight)
+		for h := 0; h < outputHeight; h++ {
+			output3d[c][h] = make([]float64, outputWidth)
+		}
+	}
+
+	// Make plain output3d
+	for c := 0; c < inputChannel; c++ {
+		for h := 0; h < inputHeight; h++ {
+			for w := 0; w < inputWidth; w++ {
+				output3d[c/k/k][h*k+((c%(k*k))/k)][w*k+((c%(k*k))%k)] = input3d[c][h][w]
+			}
+		}
+	}
+
+	// Make it 1d
+	var output1d []float64
+	for _, c := range output3d {
+		for _, h := range c {
+			for _, w := range h {
+				output1d = append(output1d, w)
+			}
+		}
+	}
+	if cf.ConvID == "CONV1" {
+		for i := 0; i < 1024; i++ {
+			output1d = append(output1d, 0)
+		}
+	}
+
+	// Make it parallel
+	cipherLen := 32768
+	result := make([]float64, 0, cipherLen)
+	for len(result) < cipherLen {
+		remain := cipherLen - len(result)
+		if remain >= len(output1d) {
+			result = append(result, output1d...)
+		} else {
+			result = append(result, output1d[:remain]...)
+		}
+	}
+
+	return result
+}
+
+// Encode the plain kernel
+func EncodeKernel(kernel4d [][][][]float64, cf *engine.ConvFeature, cc *customContext) [][]*rlwe.Plaintext {
+
+	thick := [][]int{
+		{0, 1, 0, 1}, {0, 1, 0, 0}, {0, 1, 1, 0}, // 1, 2, 3
+		{0, 0, 0, 1}, {0, 0, 0, 0}, {0, 0, 1, 0}, // 4, 5, 6
+		{1, 0, 0, 1}, {1, 0, 0, 0}, {1, 0, 1, 0}, // 7, 8, 9
+	}
+
+	var flattenFilter [][]float64
+	var rotateNums []int
+
+	for height := -1; height < 2; height++ {
+		for width := -1; width < 2; width++ {
+			rotateNums = append(rotateNums, cf.InputDataWidth*height+width)
+		}
+	}
+
+	for t := 0; t < 9; t++ {
+		flattenFilter = append(flattenFilter, rotate(flatten2d(makeZeroBorderOnes(thick[t], int(cf.InputDataWidth))), rotateNums[t]))
+	}
+
+	var outputKernel [][][]float64
+	for km := 0; km < len(cf.KernelBP); km++ {
+		outputKernel = append(outputKernel, make([][]float64, 9))
+		for w := 0; w < 9; w++ {
+			outputKernel[km][w] = make([]float64, 0)
+			for _, curKernel := range cf.KernelBP[km] {
+				for c := 0; c < len(kernel4d[0]); c++ {
+					for _, x := range multVecAndConst(flattenFilter[w], kernel4d[curKernel][c][w/3][w%3]) {
+						outputKernel[km][w] = append(outputKernel[km][w], x)
+					}
+				}
+				if cf.ConvID == "CONV1" {
+					for x := 0; x < 1024; x++ {
+						outputKernel[km][w] = append(outputKernel[km][w], 0)
+					}
+				}
+			}
+		}
+	}
+
+	for km := range outputKernel {
+		for w := range outputKernel[km] {
+			outputKernel[km][w] = multiplex(outputKernel[km][w], cf.InputDataWidth, cf.K)
+		}
+	}
+
+	//Encode to kernel
+	var encodedKernel [][]*rlwe.Plaintext
+	for km := 0; km < len(outputKernel); km++ {
+		ws := make([]*rlwe.Plaintext, len(outputKernel[0]))
+		for w := 0; w < len(outputKernel[0]); w++ {
+			exPlain := ckks.NewPlaintext(cc.Params, cc.Params.MaxLevel())
+			err := cc.Encoder.Encode(outputKernel[km][w], exPlain)
+			if err != nil {
+				fmt.Println(err)
+			}
+			ws[w] = exPlain
+		}
+		encodedKernel = append(encodedKernel, ws)
+	}
+
+	return encodedKernel
+}
+
+func multiplex(input []float64, dataWidth, k int) []float64 {
 	if k == 1 {
 		return input
 	}
 
 	beforeChannel := len(input) / (dataWidth * dataWidth)
-	input3d := make([][][]float64, beforeChannel)
-	output3d := make([][][]float64, beforeChannel/(k*k))
 
+	var input3d [][][]float64
 	for z := 0; z < beforeChannel; z++ {
-		input3d[z] = make([][]float64, dataWidth)
+		var temp [][]float64
 		for y := 0; y < dataWidth; y++ {
-			input3d[z][y] = make([]float64, dataWidth)
-			for x := 0; x < dataWidth; x++ {
-				input3d[z][y][x] = input[z*dataWidth*dataWidth+y*dataWidth+x]
-			}
+			temp = append(temp, make([]float64, dataWidth))
 		}
+		input3d = append(input3d, temp)
 	}
 
-	for z := 0; z < beforeChannel/(k*k); z++ {
-		output3d[z] = make([][]float64, dataWidth*k)
-		for y := 0; y < dataWidth*k; y++ {
-			output3d[z][y] = make([]float64, dataWidth*k)
+	var output3d [][][]float64
+	for zz := 0; zz < beforeChannel/k/k; zz++ {
+		var temp [][]float64
+		for yy := 0; yy < dataWidth*k; yy++ {
+			temp = append(temp, make([]float64, dataWidth*k))
+		}
+		output3d = append(output3d, temp)
+	}
+
+	index := 0
+	for z := 0; z < beforeChannel; z++ {
+		for y := 0; y < dataWidth; y++ {
+			for x := 0; x < dataWidth; x++ {
+				input3d[z][y][x] = input[index]
+				index++
+			}
 		}
 	}
 
@@ -415,87 +580,134 @@ func packingWithWidth(input []float64, dataWidth int, k int) []float64 {
 
 	return result
 }
-func packing(input []float64, k int) []float64 {
-	if k == 1 {
-		return input
-	}
 
-	dataWidth := 32
-
-	if k == 2 {
-		dataWidth = 16
-	} else if k == 4 {
-		dataWidth = 8
-	}
-
-	beforeChannel := len(input) / (dataWidth * dataWidth)
-	input3d := make([][][]float64, beforeChannel)
-	output3d := make([][][]float64, beforeChannel/(k*k))
-
-	for z := 0; z < beforeChannel; z++ {
-		input3d[z] = make([][]float64, dataWidth)
-		for y := 0; y < dataWidth; y++ {
-			input3d[z][y] = make([]float64, dataWidth)
-			for x := 0; x < dataWidth; x++ {
-				input3d[z][y][x] = input[z*dataWidth*dataWidth+y*dataWidth+x]
-			}
-		}
-	}
-
-	for z := 0; z < beforeChannel/(k*k); z++ {
-		output3d[z] = make([][]float64, dataWidth*k)
-		for y := 0; y < dataWidth*k; y++ {
-			output3d[z][y] = make([]float64, dataWidth*k)
-		}
-	}
-
-	for zz := 0; zz < beforeChannel; zz++ {
-		for yy := 0; yy < dataWidth; yy++ {
-			for xx := 0; xx < dataWidth; xx++ {
-				output3d[zz/k/k][yy*k+((zz%(k*k))/k)][xx*k+((zz%(k*k))%k)] = input3d[zz][yy][xx]
-			}
-		}
-	}
-
+func multVecAndConst(A []float64, B float64) []float64 {
 	var result []float64
-	for _, z := range output3d {
-		for _, y := range z {
-			for _, x := range y {
-				result = append(result, x)
-			}
-		}
+	for x := 0; x < len(A); x++ {
+		result = append(result, A[x]*B)
 	}
-
 	return result
 }
 
-func unpacking(input []float64, dataWidth, k int) []float64 {
-	if k == 1 {
-		return input
-	}
-	afterChannel := len(input) / (dataWidth * dataWidth)
-	output3d := make([][][]float64, afterChannel)
-	for z := 0; z < afterChannel; z++ {
-		output3d[z] = make([][]float64, dataWidth)
-		for yy := 0; yy < dataWidth; yy++ {
-			output3d[z][yy] = make([]float64, dataWidth)
-			for xx := 0; xx < dataWidth; xx++ {
-				output3d[z][yy][xx] = input[z/k/k*32*32+yy*k*32+(z%(k*k))/k*32+xx*k+(z%(k*k))%k]
+// Decrypt UnMultiplexed-parllel packed the input
+func UnMulParPacking(input *rlwe.Ciphertext, cf *engine.ConvFeature, cc *customContext) [][][]float64 {
+
+	k := cf.AfterK
+
+	plainInput := ciphertextToFloat(input, cc)
+
+	outputChannel := cf.KernelNumber
+	outputHeight := cf.InputDataHeight / cf.Stride
+	outputWidth := cf.InputDataWidth / cf.Stride
+
+	// Input 3d data is packed version of unpacked-input 3d data (=output3d)
+	inputChannel := outputChannel / (k * k)
+	inputHeight := outputHeight * k
+	inputWidth := outputWidth * k
+
+	// Make it UnParallel
+	input3d := make([][][]float64, inputChannel)
+	cur := 0
+	for c := 0; c < inputChannel; c++ {
+		input3d[c] = make([][]float64, inputHeight)
+		for h := 0; h < inputHeight; h++ {
+			input3d[c][h] = make([]float64, inputWidth)
+			for w := 0; w < inputWidth; w++ {
+				input3d[c][h][w] = plainInput[cur]
+				cur += 1
 			}
 		}
 	}
 
-	var result []float64
-	for _, z := range output3d {
-		for _, y := range z {
-			for _, x := range y {
-				result = append(result, x)
+	// Initialize output3d
+	output3d := make([][][]float64, outputChannel)
+	for c := 0; c < outputChannel; c++ {
+		output3d[c] = make([][]float64, outputHeight)
+		for h := 0; h < outputHeight; h++ {
+			output3d[c][h] = make([]float64, outputWidth)
+		}
+	}
+
+	// Make plain output3d
+	for c := 0; c < outputChannel; c++ {
+		for h := 0; h < outputHeight; h++ {
+			for w := 0; w < outputWidth; w++ {
+				output3d[c][h][w] = input3d[c/(k*k)][h*k+(c%(k*k))/k][w*k+(c%(k*k))%k]
 			}
 		}
 	}
 
-	return result
+	return output3d
 }
+func mse(a, b []float64) float64 {
+	var sum float64
+	for i := range a {
+		diff := a[i] - b[i]
+		sum += diff * diff
+	}
+	return sum / float64(len(a))
+}
+
+func relativeError(a, b []float64) float64 {
+	var sum float64
+	for i := range a {
+		if a[i] != 0 {
+			sum += math.Abs((a[i] - b[i]) / a[i])
+		}
+	}
+	return sum / float64(len(a))
+}
+
+func bitAccuracy(a, b []float64) float64 {
+
+	var sameBits int
+	for i := range a {
+		aBits := math.Float64bits(a[i])
+		bBits := math.Float64bits(b[i])
+		diffBits := aBits ^ bBits
+		sameBits += 64 - bits.OnesCount64(diffBits)
+	}
+	return float64(sameBits) / float64(len(a))
+}
+
+func InfinityNormDiff(a, b []float64) float64 {
+	if len(a) != len(b) {
+		panic("Vectors must be of the same length")
+	}
+	maxDiff := 0.0
+	for i := range a {
+		diff := math.Abs(a[i] - b[i])
+		if diff > maxDiff {
+			maxDiff = diff
+		}
+	}
+	return maxDiff
+}
+
+// function to calculate accuracy, recall, f1-score
+func MSE_RE_infNorm(trueVal [][][]float64, predictVal [][][]float64) []float64 {
+	trueFlat := flatten(trueVal)
+	predFlat := flatten(predictVal)
+
+	if len(trueFlat) != len(predFlat) {
+		fmt.Printf("true val len :%v, FHE val len :%v\n", len(trueFlat), len(predFlat))
+		panic("MSE_RE_bitAcc : Length mismatch between true values and predicted values")
+	}
+
+	// for i := 0; i < len(trueFlat); i++ {
+	// 	if (trueFlat[i]-predFlat[i])*(trueFlat[i]-predFlat[i]) > 0.1 {
+	// 		fmt.Printf("%v ", i)
+	// 	}
+	// }
+
+	mseVal := mse(trueFlat, predFlat)
+	reVal := relativeError(trueFlat, predFlat)
+	infNormVal := InfinityNormDiff(trueFlat, predFlat)
+
+	return []float64{mseVal, reVal, infNormVal}
+
+}
+
 func copyPaste(input []float64, copyNum int) []float64 {
 	var result []float64
 	for i := 0; i < copyNum; i++ {
@@ -511,7 +723,6 @@ func ErrorPrint(err error) {
 	}
 }
 func kernelTxtToVector(inputFilePath string) []float64 {
-	// 파일 열기
 	file, err := os.Open(inputFilePath)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -521,19 +732,15 @@ func kernelTxtToVector(inputFilePath string) []float64 {
 
 	var floats []float64
 
-	// 파일 스캐너 생성
 	scanner := bufio.NewScanner(file)
 
-	// 각 줄 읽어오기
 	for scanner.Scan() {
-		// 문자열을 float64로 변환
 		floatVal, err := strconv.ParseFloat(scanner.Text(), 64)
 		if err != nil {
 			fmt.Println("Error:", err)
 			return nil
 		}
 
-		// 슬라이스에 추가
 		floats = append(floats, floatVal)
 	}
 
@@ -541,9 +748,7 @@ func kernelTxtToVector(inputFilePath string) []float64 {
 }
 
 func FloatToTxt(filePath string, floats []float64) {
-	// 파일이 이미 존재하는지 확인
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// 파일이 존재하지 않으면 생성
 		file, err := os.Create(filePath)
 		if err != nil {
 			fmt.Println(err)
@@ -551,9 +756,7 @@ func FloatToTxt(filePath string, floats []float64) {
 		}
 		defer file.Close()
 
-		// float 배열의 각 값 저장
 		for _, val := range floats {
-			// float 값을 문자열로 변환하여 파일에 쓰기
 			_, err := file.WriteString(fmt.Sprintf("%.15f\n", val))
 			if err != nil {
 				fmt.Println(err)
@@ -563,7 +766,6 @@ func FloatToTxt(filePath string, floats []float64) {
 
 		fmt.Printf("File '%s' created successfully.\n", filePath)
 	} else {
-		// 파일이 존재하지 않으면 생성
 		file, err := os.Create(filePath)
 		if err != nil {
 			fmt.Println(err)
@@ -571,9 +773,7 @@ func FloatToTxt(filePath string, floats []float64) {
 		}
 		defer file.Close()
 
-		// float 배열의 각 값 저장
 		for _, val := range floats {
-			// float 값을 문자열로 변환하여 파일에 쓰기
 			_, err := file.WriteString(fmt.Sprintf("%.15f\n", val))
 			if err != nil {
 				fmt.Println(err)
@@ -586,7 +786,6 @@ func FloatToTxt(filePath string, floats []float64) {
 }
 
 func txtToFloat(txtPath string) []float64 {
-	// 파일 열기
 	file, err := os.Open(txtPath)
 	if err != nil {
 		return nil
@@ -595,22 +794,17 @@ func txtToFloat(txtPath string) []float64 {
 
 	var floats []float64
 
-	// 파일 스캐너 생성
 	scanner := bufio.NewScanner(file)
 
-	// 각 줄 읽어오기
 	for scanner.Scan() {
-		// 문자열을 float64로 변환
 		floatVal, err := strconv.ParseFloat(scanner.Text(), 64)
 		if err != nil {
 			return nil
 		}
 
-		// 슬라이스에 추가
 		floats = append(floats, floatVal)
 	}
 
-	// 스캔 중 에러 확인
 	if err := scanner.Err(); err != nil {
 		return nil
 	}
@@ -758,4 +952,74 @@ func add(input []float64, input2 []float64) []float64 {
 	}
 
 	return result
+}
+
+func makeZeroBorderOnes(UDLR []int, sideSize int) [][]float64 {
+	ones := make([][]float64, sideSize)
+	for i := range ones {
+		ones[i] = make([]float64, sideSize)
+		for j := range ones[i] {
+			ones[i][j] = 1
+		}
+	}
+
+	// UP
+	for up := 0; up < UDLR[0]; up++ {
+		for width := 0; width < sideSize; width++ {
+			ones[up][width] = 0
+		}
+	}
+
+	// DOWN
+	for down := sideSize - 1; down > sideSize-1-UDLR[1]; down-- {
+		for width := 0; width < sideSize; width++ {
+			ones[down][width] = 0
+		}
+	}
+
+	// LEFT
+	for left := 0; left < UDLR[2]; left++ {
+		for height := 0; height < sideSize; height++ {
+			ones[height][left] = 0
+		}
+	}
+
+	// RIGHT
+	for right := sideSize - 1; right > sideSize-1-UDLR[3]; right-- {
+		for height := 0; height < sideSize; height++ {
+			ones[height][right] = 0
+		}
+	}
+
+	return ones
+}
+func ciphertextToFloat(exCipher *rlwe.Ciphertext, cc *customContext) []float64 {
+
+	// Decrypt to Plaintext
+	exPlain := cc.Decryptor.DecryptNew(exCipher)
+
+	// Decode to []complex128
+	float := make([]float64, cc.Params.MaxSlots())
+	cc.Encoder.Decode(exPlain, float)
+
+	return float
+}
+
+// helper function
+func minMaxAvg(values []float64) (min, max, avg float64) {
+	if len(values) == 0 {
+		return 0, 0, 0
+	}
+	min, max, sum := values[0], values[0], 0.0
+	for _, v := range values {
+		if v < min {
+			min = v
+		}
+		if v > max {
+			max = v
+		}
+		sum += v
+	}
+	avg = sum / float64(len(values))
+	return
 }

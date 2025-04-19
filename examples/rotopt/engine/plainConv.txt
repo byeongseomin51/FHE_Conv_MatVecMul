@@ -1,0 +1,41 @@
+package engine
+
+import (
+	"strconv"
+)
+
+// ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// Plaintext convolution
+// ///////////////////////////////////////////////////////////////////////////////////////////////////////
+type PlainConv struct {
+	cf           *ConvFeature
+	kernel       [][][][]float64
+	layerNum     int
+	blockNum     int
+	operationNum int
+}
+
+func NewPlainConv(resnetLayerNum int, convID string, blockNum int, operationNum int) *PlainConv {
+	// conv feature
+	cf := GetConvFeature(convID)
+
+	path := "engine/precomputed/mulParConv/kernelWeight/" + strconv.Itoa(resnetLayerNum) + "/" + cf.LayerStr + "/" + strconv.Itoa(blockNum) + "/"
+
+	// preCompKernel generate
+	filePath := path + "conv" + strconv.Itoa(operationNum) + "_weight"
+	for i := 0; i < len(cf.KernelBP); i++ {
+		var temp [][][]float64
+		for j := 0; j < 9; j++ {
+			temp = append(temp, txtToFloat(filePath+strconv.Itoa(i)+"_"+strconv.Itoa(j)+".txt"))
+		}
+		kernel = append(kernel, temp)
+	}
+
+	return &PlainConv{
+		cf:           cf,
+		layerNum:     resnetLayerNum,
+		blockNum:     blockNum,
+		operationNum: operationNum,
+	}
+
+}

@@ -16,15 +16,14 @@ type RotOptConv struct {
 
 	Evaluator           *ckks.Evaluator
 	params              ckks.Parameters
-	preCompKernel       [][]*rlwe.Plaintext
-	preCompBNadd        *rlwe.Plaintext
-	preCompFilter       [][]*rlwe.Plaintext
+	preCompKernels      [][]*rlwe.Plaintext
+	preCompFilters      [][]*rlwe.Plaintext
 	lastFilter          [][]*rlwe.Plaintext
 	lastFilterTreeDepth int
 	opType0TreeDepth    int
 	dacToFor            []int
 	dacToForTreeDepth   []int
-	cf                  *ConvFeature
+	ConvFeature         *ConvFeature
 
 	layerNum           int
 	blockNum           int
@@ -42,31 +41,30 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 	convMap, q, rotIndex3by3Kernel := GetConvBlueprints(convID, depth)
 
 	// conv feature
-	cf := GetConvFeature(convID)
+	cf := GetRotOptConvFeature(convID)
 
 	// plaintext setting, kernel weight
 	path := "engine/precomputed/rotOptConv/kernelWeight/" + strconv.Itoa(resnetLayerNum) + "/" + cf.LayerStr + "/" + strconv.Itoa(blockNum) + "/"
-	var preCompKernel [][]*rlwe.Plaintext
-	var preCompBNadd *rlwe.Plaintext
-	var preCompFilter [][]*rlwe.Plaintext
+	var preCompKernels [][]*rlwe.Plaintext
+	var preCompFilters [][]*rlwe.Plaintext
 	var lastFilter [][]*rlwe.Plaintext
 
-	// preCompKernel generate
+	// preCompKernels generate
 	filePath := path + "conv" + strconv.Itoa(operationNum) + "_weight"
 	for i := 0; i < len(cf.KernelBP); i++ {
 		var temp []*rlwe.Plaintext
 		for j := 0; j < 9; j++ {
 			temp = append(temp, txtToPlain(ec, filePath+strconv.Itoa(i)+"_"+strconv.Itoa(j)+".txt", params))
 		}
-		preCompKernel = append(preCompKernel, temp)
+		preCompKernels = append(preCompKernels, temp)
 	}
 
 	// preCompBNadd generate
 	// filePath = path + "bn" + strconv.Itoa(operationNum) + "_add.txt"
 	// preCompBNadd = txtToPlain(ec, filePath, params)
 
-	// preCompFilter, lastFilter generate
-	preCompFilter, lastFilter = MakeTxtRotOptConvFilter(convID, depth, ec, params)
+	// preCompFilters, lastFilter generate
+	preCompFilters, lastFilter = MakeTxtRotOptConvFilter(convID, depth, ec, params)
 
 	// get splitNum, lastFilterLocate, opType0TreeDepth value
 	splitNum := 0
@@ -108,15 +106,14 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 
 		Evaluator:           ev,
 		params:              params,
-		preCompKernel:       preCompKernel,
-		preCompBNadd:        preCompBNadd,
-		preCompFilter:       preCompFilter,
+		preCompKernels:      preCompKernels,
+		preCompFilters:      preCompFilters,
 		lastFilter:          lastFilter,
 		lastFilterTreeDepth: lastFilterLocate,
 		opType0TreeDepth:    opType0TreeDepth,
 		dacToFor:            dacToFor,
 		dacToForTreeDepth:   dacToForTreeDepth,
-		cf:                  cf,
+		ConvFeature:         cf,
 		splitNum:            splitNum,
 
 		layerNum:           resnetLayerNum,
@@ -144,11 +141,11 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 
 	// conv
 	var splitedCiphertext []*rlwe.Ciphertext
-	for i := 0; i < obj.cf.q; i++ {
-		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernel[i][0])
+	for i := 0; i < obj.ConvFeature.q; i++ {
+		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernels[i][0])
 		ErrorPrint(err)
 		for w := 1; w < 9; w++ {
-			tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.preCompKernel[i][w])
+			tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.preCompKernels[i][w])
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(kernelResult, tempCt, kernelResult)
 			ErrorPrint(err)
@@ -255,7 +252,7 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	}
 
 	// conv
-	kernelNum := len(obj.cf.KernelBP) //all size
+	kernelNum := len(obj.ConvFeature.KernelBP) //all size
 	beforeLastFilter := kernelNum / obj.convMap[obj.lastFilterTreeDepth][1]
 	var splitedCiphertext []*rlwe.Ciphertext
 	for i := 0; i < obj.convMap[obj.lastFilterTreeDepth][1]; i++ {
@@ -268,11 +265,11 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 					//SISO convolution
 					curKernel := startKernel + d1*obj.dacToFor[1]*obj.dacToFor[2] + d2*obj.dacToFor[2] + d3
 
-					kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernel[curKernel][0])
+					kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernels[curKernel][0])
 					ErrorPrint(err)
 
 					for w := 1; w < 9; w++ {
-						tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.preCompKernel[curKernel][w])
+						tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.preCompKernels[curKernel][w])
 						ErrorPrint(err)
 
 						err = obj.Evaluator.Add(kernelResult, tempCt, kernelResult)
@@ -303,11 +300,11 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 						}
 						//filter and combine
 						if d3 == 0 {
-							err := obj.Evaluator.Mul(kernelResult, obj.preCompFilter[obj.dacToForTreeDepth[dBack]][d3], d3ResultTemp)
+							err := obj.Evaluator.Mul(kernelResult, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d3], d3ResultTemp)
 							ErrorPrint(err)
 
 						} else {
-							tempCt, err := obj.Evaluator.MulNew(kernelResult, obj.preCompFilter[obj.dacToForTreeDepth[dBack]][d3])
+							tempCt, err := obj.Evaluator.MulNew(kernelResult, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d3])
 							ErrorPrint(err)
 
 							err = obj.Evaluator.Add(tempCt, d3ResultTemp, d3ResultTemp)
@@ -341,11 +338,11 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 					}
 					// filter and combine
 					if d2 == 0 {
-						err := obj.Evaluator.Mul(d3Result, obj.preCompFilter[obj.dacToForTreeDepth[dBack]][d2], d2ResultTemp)
+						err := obj.Evaluator.Mul(d3Result, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d2], d2ResultTemp)
 						ErrorPrint(err)
 
 					} else {
-						tempCt, err := obj.Evaluator.MulNew(d3Result, obj.preCompFilter[obj.dacToForTreeDepth[dBack]][d2])
+						tempCt, err := obj.Evaluator.MulNew(d3Result, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d2])
 						ErrorPrint(err)
 
 						err = obj.Evaluator.Add(tempCt, d2ResultTemp, d2ResultTemp)
@@ -379,10 +376,10 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 				}
 				// filter and combine
 				if d1 == 0 {
-					err := obj.Evaluator.Mul(d2Result, obj.preCompFilter[obj.dacToForTreeDepth[dBack]][d1], mainCipherTemp)
+					err := obj.Evaluator.Mul(d2Result, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d1], mainCipherTemp)
 					ErrorPrint(err)
 				} else {
-					tempCt, err := obj.Evaluator.MulNew(d2Result, obj.preCompFilter[obj.dacToForTreeDepth[dBack]][d1])
+					tempCt, err := obj.Evaluator.MulNew(d2Result, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d1])
 					ErrorPrint(err)
 
 					err = obj.Evaluator.Add(tempCt, mainCipherTemp, mainCipherTemp)

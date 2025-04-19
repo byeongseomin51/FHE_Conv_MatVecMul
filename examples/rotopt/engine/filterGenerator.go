@@ -103,7 +103,7 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 	convMap, _, _ := GetConvBlueprints(convID, depth)
 
 	// get convFeature
-	convFeatureMap := GetConvFeature(convID)
+	convFeatureMap := GetRotOptConvFeature(convID)
 
 	//param setting
 	preCompFilter = make([][]*rlwe.Plaintext, len(convMap))
@@ -724,7 +724,7 @@ func makeBn(dataWidth, packing int, inputBNPath, outputBNPath string) {
 func makeModifyKernel(inputFilePath, outputFilePath, convID, inputBNPath string) {
 	originalKernel := kernelTxtToVector(inputFilePath)
 
-	mapFeatures := GetConvFeature(convID)
+	mapFeatures := GetRotOptConvFeature(convID)
 
 	thick := [][]int{
 		{0, 1, 0, 1}, {0, 1, 0, 0}, {0, 1, 1, 0}, // 1, 2, 3

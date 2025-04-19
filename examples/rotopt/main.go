@@ -50,10 +50,10 @@ func main() {
 
 	// Convolution Tests
 	if Contains(args, "conv") || args[0] == "ALL" {
-		rotOptConvDepth2TimeTest(context)
-		rotOptConvDepth3TimeTest(context)
-		rotOptConvDepth4TimeTest(context)
-		rotOptConvDepth5TimeTest(context)
+		// rotOptConvTimeTest(context, 2)
+		// rotOptConvTimeTest(context, 3)
+		// rotOptConvTimeTest(context, 4)
+		// rotOptConvTimeTest(context, 5)
 		mulParConvTimeTest(context)
 	}
 
@@ -88,6 +88,17 @@ func main() {
 			bsgsMatVecMultAccuracyTest(N, context)    //conventional
 		}
 	}
+
+	/////////////////////////////////////
+	///////////////Revision//////////////
+	/////////////////////////////////////
+	//Accuracy, Recall, F1 score
+	if Contains(args, "parBSGS") || args[0] == "ALL" {
+		for N := 32; N <= 512; N *= 2 {
+			parBsgsMatVecMultAccuracyTest(N, context) //proposed
+			bsgsMatVecMultAccuracyTest(N, context)    //conventional
+		}
+	}
 }
 
 type customContext struct {
@@ -102,50 +113,152 @@ type customContext struct {
 	Evaluator   *ckks.Evaluator
 }
 
-func floatToCiphertextLevel(floatInput []float64, level int, params ckks.Parameters, encoder *ckks.Encoder, encryptor *rlwe.Encryptor) *rlwe.Ciphertext {
+func rotOptConvTimeTest(cc *customContext, depth int) {
+	fmt.Printf("\nRotation Optimized Convolution (for %d-depth consumed) time test started!\n", depth)
 
-	// encode to Plaintext
-	exPlain := ckks.NewPlaintext(params, level)
-	_ = encoder.Encode(floatInput, exPlain)
+	var convIDs []string
+	var maxDepth []int
 
-	// Encrypt to Ciphertext
-	exCipher, err := encryptor.EncryptNew(exPlain)
-	if err != nil {
-		fmt.Println(err)
+	switch depth {
+	case 2:
+		convIDs = []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+		maxDepth = []int{2, 2, 2, 2, 2, 2}
+	case 3:
+		convIDs = []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+		maxDepth = []int{3, 3, 3, 3, 3}
+	case 4:
+		convIDs = []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+		maxDepth = []int{4, 4, 4, 4, 4}
+	case 5:
+		convIDs = []string{"CONV3s2", "CONV4s2"}
+		maxDepth = []int{5, 5}
+	default:
+		fmt.Printf("Unsupported depth: %d\n", depth)
+		return
 	}
 
-	return exCipher
-}
+	iter := 1
+	minStartCipherLevel := depth
+	maxStartCipherLevel := cc.Params.MaxLevel()
 
-func ciphertextToFloat(exCipher *rlwe.Ciphertext, cc *customContext) []float64 {
+	for index := 0; index < len(convIDs); index++ {
+		for d := depth; d <= maxDepth[index]; d++ {
+			convID := convIDs[index]
+			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
 
-	// Decrypt to Plaintext
-	exPlain := cc.Decryptor.DecryptNew(exCipher)
+			//register index of rotation
+			rots := engine.RotOptConvRegister(convID, d)
+			//rotation key register
+			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
-	// Decode to []complex128
-	float := make([]float64, cc.Params.MaxSlots())
-	cc.Encoder.Decode(exPlain, float)
+			//make rotOptConv instance
+			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, d, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
 
-	return float
-}
+			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, d, Max(minStartCipherLevel, d), maxStartCipherLevel, iter)
+			fmt.Printf("startLevel executionTime(sec)\n")
+			for startCipherLevel := Max(minStartCipherLevel, d); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+				cc.Encoder.Encode(inputRandomVector, plain)
+				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
 
-func getConvTestNum(convID string) []int {
-	if convID == "CONV1" {
-		return []int{0, 1}
-	} else if convID == "CONV2" {
-		return []int{0, 1}
-	} else if convID == "CONV3s2" {
-		return []int{0, 1}
-	} else if convID == "CONV3" {
-		return []int{0, 2}
-	} else if convID == "CONV4s2" {
-		return []int{0, 1}
-	} else if convID == "CONV4" {
-		return []int{0, 2}
+				var totalForwardTime time.Duration
+				//Conv Foward
+				for i := 0; i < iter; i++ {
+					//Convolution start
+					start := time.Now()
+					conv.Foward(inputCt)
+					end := time.Now()
+					totalForwardTime += end.Sub(start)
+
+					//Acc, F1 score, recall
+
+				}
+
+				//Print Elapsed Time
+				avgForwardTime := float64(totalForwardTime.Nanoseconds()) / float64(iter) / 1e9
+				fmt.Printf("%v %v \n", startCipherLevel, avgForwardTime)
+			}
+		}
 	}
-	return []int{}
 }
+func mulParConvTimeTest(cc *customContext) {
+	fmt.Println("\nMultiplexed Parallel Convolution time test started!")
 
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+
+	//Set iter
+	iter := 1
+
+	minStartCipherLevel := 2
+	maxStartCipherLevel := cc.Params.MaxLevel()
+
+	for index := 0; index < len(convIDs); index++ {
+		convID := convIDs[index]
+
+		//register
+		rots := engine.MulParConvRegister(convID)
+
+		//rot register
+		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+
+		//make mulParConv instance
+		conv := engine.NewMulParConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
+
+		// Make input and kernel
+		cf := conv.ConvFeature
+		plainInput := makeRandomInput(cf.InputDataChannel, cf.InputDataHeight, cf.InputDataWidth)
+		plainKernel := makeRandomKernel(cf.KernelNumber, cf.InputDataChannel, cf.KernelSize, cf.KernelSize)
+
+		//Plaintext Convolution
+		plainOutput := PlainConvolution2D(plainInput, plainKernel, cf.Stride, 1)
+
+		// Encrypt Input, Encode Kernel
+		mulParPackedInput := MulParPacking(plainInput, cf, cc)
+		conv.PreCompKernels = EncodeKernel(plainKernel, cf, cc)
+
+		// Multiplexed parallel convolution Start!
+		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
+		fmt.Printf("startLevel executionTime(sec)\n")
+		// MSE, RE, inf Norm
+		var MSEList, REList, infNormList []float64
+		for startCipherLevel := minStartCipherLevel; startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+
+			plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+			cc.Encoder.Encode(mulParPackedInput, plain)
+			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
+			var totalForwardTime time.Duration
+			//Conv Foward
+			for i := 0; i < iter; i++ {
+				//Convolution start
+				start := time.Now()
+				encryptedOutput := conv.Foward(inputCt)
+				end := time.Now()
+				totalForwardTime += end.Sub(start)
+
+				//Acc, Recall, F1 score
+				FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
+				scores := MSE_RE_infNorm(plainOutput, FHEOutput)
+				MSEList = append(MSEList, scores[0])
+				REList = append(REList, scores[1])
+				infNormList = append(infNormList, scores[2])
+			}
+
+			//Print Elapsed Time
+			avgForwardTime := float64(totalForwardTime.Nanoseconds()) / float64(iter) / 1e9
+			fmt.Printf("%v %v \n", startCipherLevel, avgForwardTime)
+		}
+		// Average Acc, Recall, F1 score
+		MSEMin, MSEMax, MSEAvg := minMaxAvg(MSEList)
+		REMin, REMax, REAvg := minMaxAvg(REList)
+		infNormMin, infNormMax, infNormAvg := minMaxAvg(infNormList)
+
+		fmt.Printf("MSE (Mean Squared Error)   : Min = %.2e, Max = %.2e, Avg = %.2e\n", MSEMin, MSEMax, MSEAvg)
+		fmt.Printf("Relative Error             : Min = %.2e, Max = %.2e, Avg = %.2e\n", REMin, REMax, REAvg)
+		fmt.Printf("Infinity Norm (L-infinity) : Min = %.2e, Max = %.2e, Avg = %.2e\n", infNormMin, infNormMax, infNormAvg)
+		fmt.Println()
+	}
+}
 func parBSGSfullyConnectedAccuracyTest(cc *customContext) {
 	fmt.Println("Fully Connected + Parallel BSGS matrix-vector multiplication Test!")
 	startLevel := 1
@@ -173,7 +286,7 @@ func parBSGSfullyConnectedAccuracyTest(cc *customContext) {
 	trueOutputFloat := txtToFloat("true_logs/FcEnd.txt")
 
 	var outputCt *rlwe.Ciphertext
-	fmt.Printf("level executionTime\n")
+	fmt.Printf("startLevel executionTime\n")
 	for level := startLevel; level <= endLevel; level++ {
 		// Encryption
 		inputCt := floatToCiphertextLevel(trueInputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -225,7 +338,7 @@ func mulParfullyConnectedAccuracyTest(cc *customContext) {
 	trueOutputFloat := txtToFloat("true_logs/FcEnd.txt")
 
 	var outputCt *rlwe.Ciphertext
-	fmt.Printf("level executionTime\n")
+	fmt.Printf("startLevel executionTime\n")
 	for level := startLevel; level <= endLevel; level++ {
 		// Encryption
 		inputCt := floatToCiphertextLevel(trueInputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -354,329 +467,6 @@ func mulParDownSamplingTest(cc *customContext) {
 	// outputFloat32 := ciphertextToFloat(outputCt32, cc)
 }
 
-func MakeGalois(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
-
-	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
-
-	for level := 0; level < len(rotIndexes); level++ {
-		var galElements []uint64
-		for _, rot := range rotIndexes[level] {
-			galElements = append(galElements, cc.Params.GaloisElement(rot))
-		}
-		galKeys := cc.Kgen.GenGaloisKeysNew(galElements, cc.Sk)
-
-		galEls = append(galEls, galKeys)
-
-		fmt.Println(unsafe.Sizeof(*galKeys[0]), unsafe.Sizeof(galKeys[0].GaloisElement), unsafe.Sizeof(galKeys[0].NthRoot), unsafe.Sizeof(galKeys[0].EvaluationKey), unsafe.Sizeof(galKeys[0].GadgetCiphertext), unsafe.Sizeof(galKeys[0].BaseTwoDecomposition), unsafe.Sizeof(galKeys[0].Value))
-	}
-	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
-	return galEls
-}
-
-func rotOptConvDepth2TimeTest(cc *customContext) {
-	fmt.Println("\nRotation Optimized Convolution (for 2-depth consumed) time test started!")
-
-	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	maxDepth := []int{2, 2, 2, 2, 2, 2}
-
-	//Set min depth
-	// startDepth := 2
-	startDepth := 2
-
-	//Set iter
-	iter := 1
-
-	// minStartCipherLevel := startDepth
-	minStartCipherLevel := startDepth
-	maxStartCipherLevel := cc.Params.MaxLevel()
-
-	fmt.Printf("level executionTime\n")
-	for index := 0; index < len(convIDs); index++ {
-		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
-			convID := convIDs[index]
-
-			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
-
-			//register
-			rots := engine.RotOptConvRegister(convID, depth)
-			// for _, r := range rots {
-			// 	fmt.Println(len(r), r)
-			// }
-
-			//rot register
-			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
-
-			//make rotOptConv instance
-			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
-
-			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
-
-			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
-
-				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
-				cc.Encoder.Encode(inputRandomVector, plain)
-				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
-
-				//Timer start
-				startTime := time.Now()
-
-				//Conv Foward
-				for i := 0; i < iter; i++ {
-					conv.Foward(inputCt)
-				}
-
-				//Timer end
-				endTime := time.Now()
-
-				//Print Elapsed Time
-				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
-				fmt.Printf("%v %v \n", startCipherLevel, time)
-			}
-		}
-	}
-}
-func rotOptConvDepth3TimeTest(cc *customContext) {
-	fmt.Println("\nRotation Optimized Convolution (for 3-depth consumed) time test started!")
-
-	convIDs := []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	maxDepth := []int{3, 3, 3, 3, 3}
-
-	//Set min depth
-	// startDepth := 2
-	startDepth := 3
-
-	//Set iter
-	iter := 1
-
-	// minStartCipherLevel := startDepth
-	minStartCipherLevel := startDepth
-	maxStartCipherLevel := cc.Params.MaxLevel()
-
-	fmt.Printf("level executionTime\n")
-	for index := 0; index < len(convIDs); index++ {
-		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
-			convID := convIDs[index]
-
-			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
-
-			//register
-			rots := engine.RotOptConvRegister(convID, depth)
-			// for _, r := range rots {
-			// 	fmt.Println(len(r), r)
-			// }
-
-			//rot register
-			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
-
-			//make rotOptConv instance
-			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
-
-			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
-
-			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
-
-				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
-				cc.Encoder.Encode(inputRandomVector, plain)
-				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
-
-				//Timer start
-				startTime := time.Now()
-
-				//Conv Foward
-				for i := 0; i < iter; i++ {
-					conv.Foward(inputCt)
-				}
-
-				//Timer end
-				endTime := time.Now()
-
-				//Print Elapsed Time
-				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
-				fmt.Printf("%v %v \n", startCipherLevel, time)
-
-			}
-		}
-	}
-}
-func rotOptConvDepth4TimeTest(cc *customContext) {
-	fmt.Println("\nRotation Optimized Convolution (for 4-depth consumed) time test started!")
-
-	convIDs := []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	maxDepth := []int{4, 4, 4, 4, 4}
-
-	//Set min depth
-	// startDepth := 2
-	startDepth := 4
-
-	//Set iter
-	iter := 1
-
-	// minStartCipherLevel := startDepth
-	minStartCipherLevel := startDepth
-	maxStartCipherLevel := cc.Params.MaxLevel()
-
-	fmt.Printf("level executionTime\n")
-	for index := 0; index < len(convIDs); index++ {
-		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
-			convID := convIDs[index]
-
-			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
-
-			//register
-			rots := engine.RotOptConvRegister(convID, depth)
-			// for _, r := range rots {
-			// 	fmt.Println(len(r), r)
-			// }
-
-			//rot register
-			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
-
-			//make rotOptConv instance
-			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
-
-			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
-
-			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
-
-				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
-				cc.Encoder.Encode(inputRandomVector, plain)
-				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
-
-				//Timer start
-				startTime := time.Now()
-
-				//Conv Foward
-				for i := 0; i < iter; i++ {
-					conv.Foward(inputCt)
-				}
-
-				//Timer end
-				endTime := time.Now()
-
-				//Print Elapsed Time
-				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
-				fmt.Printf("%v %v \n", startCipherLevel, time)
-
-			}
-		}
-	}
-}
-func rotOptConvDepth5TimeTest(cc *customContext) {
-	fmt.Println("\nRotation Optimized Convolution (for 5-depth consumed) time test started!")
-
-	convIDs := []string{"CONV3s2", "CONV4s2"}
-	maxDepth := []int{5, 5}
-
-	//Set min depth
-	// startDepth := 2
-	startDepth := 5
-
-	//Set iter
-	iter := 1
-
-	// minStartCipherLevel := startDepth
-	minStartCipherLevel := startDepth
-	maxStartCipherLevel := cc.Params.MaxLevel()
-
-	fmt.Printf("level executionTime\n")
-	for index := 0; index < len(convIDs); index++ {
-		for depth := startDepth; depth < maxDepth[index]+1; depth++ { //원래 depth:=2
-			convID := convIDs[index]
-
-			inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
-
-			//register
-			rots := engine.RotOptConvRegister(convID, depth)
-			// for _, r := range rots {
-			// 	fmt.Println(len(r), r)
-			// }
-
-			//rot register
-			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
-
-			//make rotOptConv instance
-			conv := engine.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, depth, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
-
-			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
-
-			for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
-
-				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
-				cc.Encoder.Encode(inputRandomVector, plain)
-				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
-
-				//Timer start
-				startTime := time.Now()
-
-				//Conv Foward
-				for i := 0; i < iter; i++ {
-					conv.Foward(inputCt)
-				}
-
-				//Timer end
-				endTime := time.Now()
-
-				//Print Elapsed Time
-				time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
-				fmt.Printf("%v %v \n", startCipherLevel, time)
-
-			}
-		}
-	}
-}
-func mulParConvTimeTest(cc *customContext) {
-	fmt.Println("\nMultiplexed Parallel Convolution time test started!")
-
-	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-
-	//Set iter
-	iter := 1
-
-	minStartCipherLevel := 2
-	maxStartCipherLevel := cc.Params.MaxLevel()
-
-	for index := 0; index < len(convIDs); index++ {
-		convID := convIDs[index]
-
-		inputRandomVector := makeRandomFloat(cc.Params.MaxSlots())
-
-		//register
-		rots := engine.MulParConvRegister(convID)
-
-		//rot register
-		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
-
-		//make mulParConv instance
-		conv := engine.NewMulParConv(newEvaluator, cc.Encoder, cc.Params, 20, convID, getConvTestNum(convID)[0], getConvTestNum(convID)[1])
-
-		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, 2, minStartCipherLevel, maxStartCipherLevel, iter)
-
-		fmt.Printf("level executionTime\n")
-		for startCipherLevel := minStartCipherLevel; startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
-
-			plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
-			cc.Encoder.Encode(inputRandomVector, plain)
-			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
-
-			//Timer start
-			startTime := time.Now()
-
-			//Conv Foward
-			for i := 0; i < iter; i++ {
-				conv.Foward(inputCt)
-			}
-
-			//Timer end
-			endTime := time.Now()
-
-			//Print Elapsed Time
-			time := float64((endTime.Sub(startTime) / time.Duration(iter)).Nanoseconds()) / 1e9
-			fmt.Printf("%v %v \n", startCipherLevel, time)
-		}
-
-	}
-}
-
 func RotIndexToGaloisElements(input []int, context *customContext) *ckks.Evaluator {
 	var galElements []uint64
 
@@ -701,8 +491,12 @@ func setCKKSEnv() *customContext {
 
 	context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
 		LogN: 16,
-		LogQ: []int{51, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46, 46,
-			46, 46, 46, 46, 46, 46, 46, 46, 46, 46},
+		LogQ: []int{51,
+			46, 46, 46, 46, 46,
+			46, 46, 46, 46, 46,
+			46, 46, 46, 46, 46,
+			46, 46, 46, 46, 46,
+			46, 46, 46, 46},
 		LogP:            []int{60, 60, 60, 60, 60},
 		LogDefaultScale: 46,
 	})
@@ -946,7 +740,7 @@ func basicOperationTimeTest(cc *customContext) {
 	rot := make([]int, 1)
 	rot[0] = 1
 
-	fmt.Println("Rotate Add Mul")
+	fmt.Println("StartLevel Rotate Add Mul")
 	//rot register
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 	for i := 0; i <= cc.Params.MaxLevel(); i++ {
@@ -990,7 +784,7 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 	matVecMul := engine.NewBsgsDiagMatVecMul(A, N, nt, newEvaluator, cc.Encoder, cc.Params)
 
-	fmt.Printf("level executionTime(sec)\n")
+	fmt.Printf("startLevel executionTime\n")
 	for level := 1; level <= cc.Params.MaxLevel(); level++ {
 
 		Bct := floatToCiphertextLevel(B1d, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -1029,7 +823,7 @@ func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	newEvaluator := RotIndexToGaloisElements(rot, cc)
 	matVecMul := engine.NewParBsgsDiagMatVecMul(A, N, nt, pi, newEvaluator, cc.Encoder, cc.Params)
 
-	fmt.Printf("level executionTime(sec)\n")
+	fmt.Printf("startLevel executionTime\n")
 	for level := 1; level <= cc.Params.MaxLevel(); level++ {
 
 		Bct := floatToCiphertextLevel(B1d, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -1051,4 +845,54 @@ func Contains(slice []string, str string) bool {
 		}
 	}
 	return false
+}
+
+func floatToCiphertextLevel(floatInput []float64, level int, params ckks.Parameters, encoder *ckks.Encoder, encryptor *rlwe.Encryptor) *rlwe.Ciphertext {
+
+	// encode to Plaintext
+	exPlain := ckks.NewPlaintext(params, level)
+	_ = encoder.Encode(floatInput, exPlain)
+
+	// Encrypt to Ciphertext
+	exCipher, err := encryptor.EncryptNew(exPlain)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return exCipher
+}
+
+func getConvTestNum(convID string) []int {
+	if convID == "CONV1" {
+		return []int{0, 1}
+	} else if convID == "CONV2" {
+		return []int{0, 1}
+	} else if convID == "CONV3s2" {
+		return []int{0, 1}
+	} else if convID == "CONV3" {
+		return []int{0, 2}
+	} else if convID == "CONV4s2" {
+		return []int{0, 1}
+	} else if convID == "CONV4" {
+		return []int{0, 2}
+	}
+	return []int{}
+}
+func MakeGalois(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
+
+	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
+
+	for level := 0; level < len(rotIndexes); level++ {
+		var galElements []uint64
+		for _, rot := range rotIndexes[level] {
+			galElements = append(galElements, cc.Params.GaloisElement(rot))
+		}
+		galKeys := cc.Kgen.GenGaloisKeysNew(galElements, cc.Sk)
+
+		galEls = append(galEls, galKeys)
+
+		fmt.Println(unsafe.Sizeof(*galKeys[0]), unsafe.Sizeof(galKeys[0].GaloisElement), unsafe.Sizeof(galKeys[0].NthRoot), unsafe.Sizeof(galKeys[0].EvaluationKey), unsafe.Sizeof(galKeys[0].GadgetCiphertext), unsafe.Sizeof(galKeys[0].BaseTwoDecomposition), unsafe.Sizeof(galKeys[0].Value))
+	}
+	// newEvaluator := ckks.NewEvaluator(cc.Params, rlwe.NewMemEvaluationKeySet(cc.Kgen.GenRelinearizationKeyNew(cc.Sk), galKeys...))
+	return galEls
 }

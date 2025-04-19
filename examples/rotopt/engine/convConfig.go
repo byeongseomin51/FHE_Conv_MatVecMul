@@ -519,10 +519,11 @@ func ConvertToConvID(planes int, stride int) string {
 	return ""
 }
 
-func GetConvFeature(convID string) *ConvFeature {
+func GetRotOptConvFeature(convID string) *ConvFeature {
 	var result ConvFeature
 	// rot -> filter -> add
 	if convID == "CONV1" { //32*32*3 -> 32*32*16, kernel=3*3, k=1
+		result.ConvID = "CONV1"
 		result.Layer = 0
 		result.LayerStr = "layer0"
 		result.X = 0
@@ -546,6 +547,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		}
 
 	} else if convID == "CONV2" { //32*32*16 -> 32*32*16, kernel=3*3, k=1
+		result.ConvID = "CONV2"
 		result.Layer = 1
 		result.LayerStr = "layer1"
 		result.X = 1
@@ -569,6 +571,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		}
 
 	} else if convID == "CONV3s2" { //32*32*16 -> 16*16*32, kernel=3*3, k=1->2
+		result.ConvID = "CONV3s2"
 		result.Layer = 2
 		result.LayerStr = "layer2"
 		result.X = 0
@@ -592,6 +595,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.q = 16
 
 	} else if convID == "CONV3" { //16*16*32 -> 16*16*32, kernel=3*3, k=2
+		result.ConvID = "CONV3"
 		result.Layer = 2
 		result.LayerStr = "layer2"
 		result.X = 2
@@ -615,6 +619,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.q = 8
 
 	} else if convID == "CONV4s2" { //16*16*32 -> 8*8*64, kernel=3*3, k=2->4
+		result.ConvID = "CONV4s2"
 		result.Layer = 3
 		result.LayerStr = "layer3"
 		result.X = 0
@@ -641,6 +646,7 @@ func GetConvFeature(convID string) *ConvFeature {
 		result.q = 16
 
 	} else if convID == "CONV4" { //8*8*64 -> 8*8*64, kernel=3*3, k=4
+		result.ConvID = "CONV4"
 		result.Layer = 3
 		result.LayerStr = "layer3"
 		result.X = 2
@@ -675,6 +681,7 @@ func GetConvFeature(convID string) *ConvFeature {
 func GetMulParConvFeature(convID string) *ConvFeature {
 	var result ConvFeature
 	if convID == "CONV1" { //32*32*3 -> 32*32*16, kernel=3*3, k=1
+		result.ConvID = "CONV1"
 		result.Layer = 0
 		result.LayerStr = "layer0"
 		result.X = 0
@@ -698,6 +705,7 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 		}
 
 	} else if convID == "CONV2" { //32*32*16 -> 32*32*16, kernel=3*3, k=1
+		result.ConvID = "CONV2"
 		result.Layer = 1
 		result.LayerStr = "layer1"
 		result.X = 1
@@ -721,6 +729,7 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 		}
 
 	} else if convID == "CONV3s2" { //32*32*16 -> 16*16*32, kernel=3*3, k=1->2
+		result.ConvID = "CONV3s2"
 		result.Layer = 2
 		result.LayerStr = "layer2"
 		result.X = 0
@@ -744,6 +753,7 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 		result.q = 16
 
 	} else if convID == "CONV3" { //16*16*32 -> 16*16*32, kernel=3*3, k=2
+		result.ConvID = "CONV3"
 		result.Layer = 2
 		result.LayerStr = "layer2"
 		result.X = 2
@@ -767,6 +777,7 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 		result.q = 8
 
 	} else if convID == "CONV4s2" { //16*16*32 -> 8*8*64, kernel=3*3, k=2->4
+		result.ConvID = "CONV4s2"
 		result.Layer = 3
 		result.LayerStr = "layer3"
 		result.X = 0
@@ -793,6 +804,7 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 		result.q = 16
 
 	} else if convID == "CONV4" { //8*8*64 -> 8*8*64, kernel=3*3, k=4
+		result.ConvID = "CONV4"
 		result.Layer = 3
 		result.LayerStr = "layer3"
 		result.X = 2
@@ -826,6 +838,7 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 }
 
 type ConvFeature struct {
+	ConvID           string
 	Layer            int
 	LayerStr         string
 	X                int

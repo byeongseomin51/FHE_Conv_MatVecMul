@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"strconv"
-
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
@@ -15,11 +13,10 @@ type MulParConv struct {
 
 	Evaluator      *ckks.Evaluator
 	params         ckks.Parameters
-	preCompKernel  [][]*rlwe.Plaintext
-	preCompBNadd   *rlwe.Plaintext
+	PreCompKernels [][]*rlwe.Plaintext
 	preCompFilters [][]*rlwe.Plaintext
 
-	cf *ConvFeature
+	ConvFeature *ConvFeature
 
 	layerNum           int
 	blockNum           int
@@ -37,27 +34,10 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 	_, q, rotIndex3by3Kernel := GetConvBlueprints(convID, 2)
 
 	// conv feature
-	cf := GetConvFeature(convID)
+	cf := GetMulParConvFeature(convID)
 
 	// plaintext setting, kernel weight
-	path := "engine/precomputed/mulParConv/kernelWeight/" + strconv.Itoa(resnetLayerNum) + "/" + cf.LayerStr + "/" + strconv.Itoa(blockNum) + "/"
-	var preCompKernel [][]*rlwe.Plaintext
-	var preCompBNadd *rlwe.Plaintext
 	var preCompFilter []*rlwe.Plaintext
-
-	// preCompKernel generate
-	filePath := path + "conv" + strconv.Itoa(operationNum) + "_weight"
-	for i := 0; i < len(cf.KernelBP); i++ {
-		var temp []*rlwe.Plaintext
-		for j := 0; j < 9; j++ {
-			temp = append(temp, txtToPlain(ec, filePath+strconv.Itoa(i)+"_"+strconv.Itoa(j)+".txt", params))
-		}
-		preCompKernel = append(preCompKernel, temp)
-	}
-
-	// preCompBNadd generate
-	// filePath = path + "bn" + strconv.Itoa(operationNum) + "_add.txt"
-	// preCompBNadd = txtToPlain(ec, filePath, params)
 
 	// preCompFilter generate
 	isConv1 := false
@@ -112,10 +92,8 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 
 		Evaluator:      ev,
 		params:         params,
-		preCompKernel:  preCompKernel,
-		preCompBNadd:   preCompBNadd,
 		preCompFilters: preCompFilters,
-		cf:             cf,
+		ConvFeature:    cf,
 
 		layerNum:           resnetLayerNum,
 		blockNum:           blockNum,
@@ -150,15 +128,15 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	// fmt.Println("rotate data ", time.Now().Sub(start))
 
 	//For each ciphertext
-	for cipherNum := 0; cipherNum < obj.cf.q; cipherNum++ {
+	for cipherNum := 0; cipherNum < obj.ConvFeature.q; cipherNum++ {
 		// Mul kernels
-		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.preCompKernel[cipherNum][0])
+		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.PreCompKernels[cipherNum][0])
 		ErrorPrint(err)
 		// err = obj.Evaluator.Rescale(tempCt, tempCt)
 		// ErrorPrint(err)
 
 		for w := 1; w < 9; w++ {
-			tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.preCompKernel[cipherNum][w])
+			tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.PreCompKernels[cipherNum][w])
 			ErrorPrint(err)
 			// err = obj.Evaluator.Rescale(tempCt, tempCtLv1)
 			// ErrorPrint(err)
@@ -180,13 +158,13 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 
 		//Mul each filter to get each channel
-		for eachCopy := 0; eachCopy < obj.cf.BeforeCopy; eachCopy++ {
+		for eachCopy := 0; eachCopy < obj.ConvFeature.BeforeCopy; eachCopy++ {
 			if cipherNum == 0 && eachCopy == 0 {
-				temp, err := obj.Evaluator.RotateNew(mainCipher, obj.depth0Rotate[cipherNum*obj.cf.BeforeCopy+eachCopy])
+				temp, err := obj.Evaluator.RotateNew(mainCipher, obj.depth0Rotate[cipherNum*obj.ConvFeature.BeforeCopy+eachCopy])
 				ErrorPrint(err)
 				ctOut, _ = obj.Evaluator.MulNew(temp, obj.preCompFilters[cipherNum][eachCopy])
 			} else {
-				temp, err := obj.Evaluator.RotateNew(mainCipher, obj.depth0Rotate[cipherNum*obj.cf.BeforeCopy+eachCopy])
+				temp, err := obj.Evaluator.RotateNew(mainCipher, obj.depth0Rotate[cipherNum*obj.ConvFeature.BeforeCopy+eachCopy])
 				ErrorPrint(err)
 				obj.Evaluator.Mul(temp, obj.preCompFilters[cipherNum][eachCopy], temp)
 				ErrorPrint(err)
@@ -199,7 +177,7 @@ func (obj MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	obj.Evaluator.Rescale(ctOut, ctOut)
 
-	for afterCopy := 32768 / obj.cf.AfterCopy; afterCopy < 32768; afterCopy *= 2 {
+	for afterCopy := 32768 / obj.ConvFeature.AfterCopy; afterCopy < 32768; afterCopy *= 2 {
 		obj.Evaluator.Rotate(ctOut, -afterCopy, tempCtLv0)
 		obj.Evaluator.Add(ctOut, tempCtLv0, ctOut)
 	}
@@ -226,15 +204,15 @@ func MulParConvRegister(convID string) [][]int {
 	}
 
 	//Depth1
-	cf := GetConvFeature(convID)
-	k := cf.K
+	ConvFeature := GetMulParConvFeature(convID)
+	k := ConvFeature.K
 
 	for ki := 1; ki < k; ki *= 2 {
 		rotateSets[1][ki] = true
 		rotateSets[1][32*ki] = true
 	}
 
-	for bi := 1; bi < cf.InputDataChannel/k/k; bi *= 2 {
+	for bi := 1; bi < ConvFeature.InputDataChannel/k/k; bi *= 2 {
 		rotateSets[1][1024*bi] = true
 	}
 
@@ -243,14 +221,14 @@ func MulParConvRegister(convID string) [][]int {
 	if convID == "CONV1" {
 		isConv1 = true
 	}
-	for inputChannel := 0; inputChannel < cf.KernelNumber; inputChannel++ {
-		beforeLocate := getFirstLocate(0, inputChannel%cf.BeforeCopy, cf.K, isConv1)
+	for inputChannel := 0; inputChannel < ConvFeature.KernelNumber; inputChannel++ {
+		beforeLocate := getFirstLocate(0, inputChannel%ConvFeature.BeforeCopy, ConvFeature.K, isConv1)
 
-		afterLoate := getFirstLocate(inputChannel, 0, cf.AfterK, isConv1)
+		afterLoate := getFirstLocate(inputChannel, 0, ConvFeature.AfterK, isConv1)
 
 		rotateSets[0][beforeLocate-afterLoate] = true
 	}
-	for afterCopy := 32768 / cf.AfterCopy; afterCopy < 32768; afterCopy *= 2 {
+	for afterCopy := 32768 / ConvFeature.AfterCopy; afterCopy < 32768; afterCopy *= 2 {
 		rotateSets[0][-afterCopy] = true
 	}
 
