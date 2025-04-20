@@ -97,8 +97,7 @@ func main() {
 
 	// CKKS parameter settings
 	if Contains(args, "paramTest") || args[0] == "ALL" {
-		// CKKSEnvSetList := []string{"PN16QP1761", "PN15QP880CI", "PN16QP1654pq", "PN15QP827CIpq"}
-		CKKSEnvSetList := []string{"PN15QP880CI", "PN16QP1654pq", "PN15QP827CIpq"}
+		CKKSEnvSetList := []string{"PN16QP1761", "PN15QP880CI", "PN16QP1654pq", "PN15QP827CIpq"}
 		for _, SetName := range CKKSEnvSetList {
 			contextCustom := setCKKSEnvUseParamSet(SetName)
 			fmt.Printf("CKKS parameter set as : %s\n", SetName)
