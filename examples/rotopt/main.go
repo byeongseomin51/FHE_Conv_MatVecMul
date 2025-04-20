@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
+	"github.com/tuneinsight/lattigo/v5/ring"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
 
@@ -50,7 +51,7 @@ func main() {
 
 	// Convolution Tests
 	if Contains(args, "conv") || args[0] == "ALL" {
-		// rotOptConvTimeTest(context, 2)
+		rotOptConvTimeTest(context, 2)
 		rotOptConvTimeTest(context, 3)
 		rotOptConvTimeTest(context, 4)
 		rotOptConvTimeTest(context, 5)
@@ -92,12 +93,34 @@ func main() {
 	/////////////////////////////////////
 	///////////////Revision//////////////
 	/////////////////////////////////////
-	//Accuracy, Recall, F1 score
-	if Contains(args, "parBSGS") || args[0] == "ALL" {
-		for N := 32; N <= 512; N *= 2 {
-			parBsgsMatVecMultAccuracyTest(N, context) //proposed
-			bsgsMatVecMultAccuracyTest(N, context)    //conventional
+	//args["conv"] updated. (accuracy calculate)
+
+	// CKKS parameter settings
+	if Contains(args, "paramTest") || args[0] == "ALL" {
+		// CKKSEnvSetList := []string{"PN16QP1761", "PN15QP880CI", "PN16QP1654pq", "PN15QP827CIpq"}
+		CKKSEnvSetList := []string{"PN15QP880CI", "PN16QP1654pq", "PN15QP827CIpq"}
+		for _, SetName := range CKKSEnvSetList {
+			contextCustom := setCKKSEnvUseParamSet(SetName)
+			fmt.Printf("CKKS parameter set as : %s\n", SetName)
+
+			rotOptConvTimeTest(contextCustom, 2)
+			rotOptConvTimeTest(contextCustom, 3)
+			rotOptConvTimeTest(contextCustom, 4)
+			rotOptConvTimeTest(contextCustom, 5)
+			mulParConvTimeTest(contextCustom)
+
+			parBSGSfullyConnectedAccuracyTest(context) //using parallel BSGS matrix-vector multiplication to fully connected layer.
+			mulParfullyConnectedAccuracyTest(context)  //conventional
+			for N := 32; N <= 512; N *= 2 {
+				parBsgsMatVecMultAccuracyTest(N, context) //proposed
+				bsgsMatVecMultAccuracyTest(N, context)    //conventional
+			}
 		}
+	}
+
+	// Generalization of different AI models
+	if Contains(args, "otherConv") || args[0] == "ALL" {
+
 	}
 }
 
@@ -507,6 +530,74 @@ func RotIndexToGaloisElements(input []int, context *customContext) *ckks.Evaluat
 	return newEvaluator
 }
 
+// Refer lattigo latest official document : https://pkg.go.dev/github.com/tuneinsight/lattigo/v4@v4.1.1/ckks#section-readme
+func setCKKSEnvUseParamSet(paramSet string) *customContext {
+	context := new(customContext)
+
+	switch paramSet {
+	case "PN16QP1761": // PN16QP1761 is a default parameter set for logN=16 and logQP = 1761
+		context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+			LogN: 16,
+			Q: []uint64{0x80000000080001, 0x2000000a0001, 0x2000000e0001, 0x1fffffc20001,
+				0x200000440001, 0x200000500001, 0x200000620001, 0x1fffff980001,
+				0x2000006a0001, 0x1fffff7e0001, 0x200000860001, 0x200000a60001,
+				0x200000aa0001, 0x200000b20001, 0x200000c80001, 0x1fffff360001,
+				0x200000e20001, 0x1fffff060001, 0x200000fe0001, 0x1ffffede0001,
+				0x1ffffeca0001, 0x1ffffeb40001, 0x200001520001, 0x1ffffe760001,
+				0x2000019a0001, 0x1ffffe640001, 0x200001a00001, 0x1ffffe520001,
+				0x200001e80001, 0x1ffffe0c0001, 0x1ffffdee0001, 0x200002480001,
+				0x1ffffdb60001, 0x200002560001},
+			P:               []uint64{0x80000000440001, 0x7fffffffba0001, 0x80000000500001, 0x7fffffffaa0001},
+			LogDefaultScale: 45,
+		})
+	case "PN15QP880CI": // PN16QP1761CI is a default parameter set for logN=16 and logQP = 1761
+		context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+			LogN: 15,
+			Q: []uint64{0x4000000120001,
+				0x10000140001, 0xffffe80001, 0xffffc40001,
+				0x100003e0001, 0xffffb20001, 0x10000500001,
+				0xffff940001, 0xffff8a0001, 0xffff820001,
+				0xffff780001, 0x10000960001, 0x10000a40001,
+				0xffff580001, 0x10000b60001, 0xffff480001,
+				0xffff420001, 0xffff340001},
+			P:               []uint64{0x3ffffffd20001, 0x4000000420001, 0x3ffffffb80001},
+			RingType:        ring.ConjugateInvariant,
+			LogDefaultScale: 40,
+		})
+	case "PN16QP1654pq": // PN16QP1654pq is a default (post quantum) parameter set for logN=16 and logQP=1654
+		context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+			LogN: 16,
+			Q: []uint64{0x80000000080001, 0x2000000a0001, 0x2000000e0001, 0x1fffffc20001, 0x200000440001,
+				0x200000500001, 0x200000620001, 0x1fffff980001, 0x2000006a0001, 0x1fffff7e0001,
+				0x200000860001, 0x200000a60001, 0x200000aa0001, 0x200000b20001, 0x200000c80001,
+				0x1fffff360001, 0x200000e20001, 0x1fffff060001, 0x200000fe0001, 0x1ffffede0001,
+				0x1ffffeca0001, 0x1ffffeb40001, 0x200001520001, 0x1ffffe760001, 0x2000019a0001,
+				0x1ffffe640001, 0x200001a00001, 0x1ffffe520001, 0x200001e80001, 0x1ffffe0c0001,
+				0x1ffffdee0001, 0x200002480001},
+			P:               []uint64{0x7fffffffe0001, 0x80000001c0001, 0x80000002c0001, 0x7ffffffd20001},
+			LogDefaultScale: 45,
+		})
+	case "PN15QP827CIpq": // PN16QP1654CIpq is a default (post quantum) parameter set for logN=16 and logQP=1654
+		context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+			LogN: 15,
+			Q: []uint64{0x400000060001, 0x3fffe80001, 0x4000300001, 0x3fffb80001,
+				0x40004a0001, 0x3fffb20001, 0x4000540001, 0x4000560001,
+				0x3fff900001, 0x4000720001, 0x3fff8e0001, 0x4000800001,
+				0x40008a0001, 0x3fff6c0001, 0x40009e0001, 0x3fff300001,
+				0x3fff1c0001, 0x4000fc0001},
+			P:               []uint64{0x2000000a0001, 0x2000000e0001, 0x1fffffc20001},
+			RingType:        ring.ConjugateInvariant,
+			LogDefaultScale: 38,
+		})
+	default:
+		fmt.Printf("Unsupported CKKS parameter set name : %s\n", paramSet)
+		fmt.Printf("CKKS setting set as default")
+		return setCKKSEnv()
+	}
+
+	return setCKKSContext(context)
+}
+
 func setCKKSEnv() *customContext {
 	context := new(customContext)
 	// context.Params, _ = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
@@ -528,6 +619,10 @@ func setCKKSEnv() *customContext {
 		LogDefaultScale: 46,
 	})
 
+	return setCKKSContext(context)
+}
+
+func setCKKSContext(context *customContext) *customContext {
 	context.Kgen = ckks.NewKeyGenerator(context.Params)
 
 	context.Sk, context.Pk = context.Kgen.GenKeyPairNew()
