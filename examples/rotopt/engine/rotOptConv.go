@@ -438,11 +438,7 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 	}
 
-	//Add bn_add
-	// ctOut, err = obj.Evaluator.AddNew(splitedCiphertext[0], obj.preCompBNadd)
-	// ErrorPrint(err)
-
-	return ctOut
+	return splitedCiphertext[0]
 }
 
 func RotOptConvRegister(convID string, depth int) [][]int {

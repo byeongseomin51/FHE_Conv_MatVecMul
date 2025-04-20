@@ -50,7 +50,7 @@ func main() {
 
 	// Convolution Tests
 	if Contains(args, "conv") || args[0] == "ALL" {
-		rotOptConvTimeTest(context, 2)
+		// rotOptConvTimeTest(context, 2)
 		rotOptConvTimeTest(context, 3)
 		rotOptConvTimeTest(context, 4)
 		rotOptConvTimeTest(context, 5)
@@ -184,7 +184,7 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 					end := time.Now()
 					totalForwardTime += end.Sub(start)
 
-					//Acc, Recall, F1 score
+					// MSE, RE, inf Norm
 					FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
 					scores := MSE_RE_infNorm(plainOutput, FHEOutput)
 					MSEList = append(MSEList, scores[0])
@@ -263,7 +263,7 @@ func mulParConvTimeTest(cc *customContext) {
 				end := time.Now()
 				totalForwardTime += end.Sub(start)
 
-				//Acc, Recall, F1 score
+				// MSE, RE, inf Norm
 				FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
 				scores := MSE_RE_infNorm(plainOutput, FHEOutput)
 				MSEList = append(MSEList, scores[0])
