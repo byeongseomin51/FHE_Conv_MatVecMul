@@ -499,8 +499,84 @@ func GetConvBlueprints(convID string, depth int) ([][]int, int, []int) {
 		q = 8
 		rotIndex3by3Kernel = []int{-132, -128, -124, -4, 0, 4, 124, 128, 132}
 		////////////개발필요 맨 아래 conv feature 도 개발!!!
-	} else if convID == "CvT21_Cifar100_Stage2" { //8*8*64 -> 4*4*192, kernel=3*3 (192->256), k=1
-		//CvT21_Cifar100_Stage2
+	} else if convID == "CvTCifar100Stage2" { //8*8*64 -> 4*4*192, kernel=3*3 (192->256), k=1
+		//CvTCifar100Stage2
+		//=================Choose MAP=================//
+		if depth == 2 {
+			blueprints = [][]int{
+				{4},
+				{0, 2048},
+				{2, 32, 64, 128, 256, 512, 1024},
+				{3, 8, 4096 - 1, 4096*2 - 8, 4096*3 - 8 - 1, 16384 - 4*4*96},
+				{0, -8192},
+				{0, -16384},
+			}
+		} else if depth == 3 {
+			blueprints = [][]int{
+				{5},
+				{1, 4, 1024, 2048},
+				{2, 4, 4096, 8192},
+				{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
+				{0, -8192},
+				{0, -16384},
+			}
+			// blueprints = [][]int{
+			// 	{5},
+			// 	{1, 2, 1024},
+			// 	{2, 8, 2048, 4096, 8192},
+			// 	{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
+			// 	{0, -8192},
+			// 	{0, -16384},
+			// }
+			// blueprints = [][]int{
+			// 	{5},
+			// 	{1, 8, 1024, 2048, 4096},
+			// 	{2, 2, 8192},
+			// 	{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
+			// 	{0, -8192},
+			// 	{0, -16384},
+			// }
+		} else if depth == 4 {
+			blueprints = [][]int{
+				{6},
+				{1, 2, 1024},
+				{1, 2, 2048},
+				{2, 4, 4096, 8192},
+				{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
+				{0, -8192},
+				{0, -16384},
+			}
+			// blueprints = [][]int{
+			// 	{6},
+			// 	{1, 4, 1024, 2048},
+			// 	{1, 2, 4096},
+			// 	{2, 2, 8192},
+			// 	{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
+			// 	{0, -8192},
+			// 	{0, -16384},
+			// }
+		} else if depth == 5 {
+			//5 depth, 43 rotation,
+			blueprints = [][]int{
+				{7},
+				{1, 2, 1024},
+				{1, 2, 2048},
+				{1, 2, 4096},
+				{2, 2, 8192},
+				{3, 4, 8192 - 1, 16384 - 32, 16384 + 8192 - 32 - 1},
+				{0, -8192},
+				{0, -16384},
+			}
+		} else {
+			fmt.Printf("RotOptConv : Invalid parameter! convID(%s), depth(%v)", convID, depth)
+
+		}
+		//============================================//
+
+		q = 24
+		rotIndex3by3Kernel = []int{-9, -8, -7, -1, 0, 1, 7, 8, 9}
+	} else if convID == "CvTCifar100Stage3" { //4*4*192 -> 2*2*384, kernel=3*3 (192->256, 384->512), k=1
+		//CvTCifar100Stage3
 		//=================Choose MAP=================//
 		if depth == 2 {
 			blueprints = [][]int{
@@ -547,56 +623,7 @@ func GetConvBlueprints(convID string, depth int) ([][]int, int, []int) {
 		//============================================//
 
 		q = 8
-		rotIndex3by3Kernel = []int{-132, -128, -124, -4, 0, 4, 124, 128, 132}
-	} else if convID == "CvT21_Cifar100_Stage3" { //4*4*192 -> 2*2*384, kernel=3*3 (192->256, 384->512), k=1
-		//CvT21_Cifar100_Stage3
-		//=================Choose MAP=================//
-		if depth == 2 {
-			blueprints = [][]int{
-				{8},
-				{0, 32 + 32},
-				{0, 1024},
-				{0, 2048},
-				{2, 8, 1, 2, 32},
-				{3, 8, 1024*4 - 64, 1024 * 7, 1024*11 - 64, 1024 * 14, 1024*18 - 64, 1024 * 21, 1024*25 - 64},
-				{0, -4096},
-				{0, -8192},
-				{0, -16384},
-			}
-		} else if depth == 3 {
-			blueprints = [][]int{
-				{9},
-				{1, 4, 1, 2},
-				{0, 32 + 32},
-				{0, 1024},
-				{0, 2048},
-				{2, 2, 32},
-				{3, 8, 1024*4 - 64, 1024 * 7, 1024*11 - 64, 1024 * 14, 1024*18 - 64, 1024 * 21, 1024*25 - 64},
-				{0, -4096},
-				{0, -8192},
-				{0, -16384},
-			}
-		} else if depth == 4 {
-			blueprints = [][]int{
-				{10},
-				{1, 2, 1},
-				{1, 2, 2},
-				{0, 32 + 32},
-				{0, 1024},
-				{0, 2048},
-				{2, 2, 32},
-				{3, 8, 1024*4 - 64, 1024 * 7, 1024*11 - 64, 1024 * 14, 1024*18 - 64, 1024 * 21, 1024*25 - 64},
-				{0, -4096},
-				{0, -8192},
-				{0, -16384},
-			}
-		} else {
-			fmt.Printf("RotOptConv : Invalid parameter! convID(%s), depth(%v)", convID, depth)
-		}
-		//============================================//
-
-		q = 8
-		rotIndex3by3Kernel = []int{-132, -128, -124, -4, 0, 4, 124, 128, 132}
+		rotIndex3by3Kernel = []int{-18, -16, -14, -2, 0, 2, 14, 16, 18}
 	} else if convID == "MUSE_PyramidContextConv" { //8*8*512 -> 8*8*512, kernel=3*3, k=1
 		//MUSE_PyramidContextConv
 		//=================Choose MAP=================//
@@ -662,32 +689,11 @@ func GetConvBlueprints(convID string, depth int) ([][]int, int, []int) {
 	return blueprints, q, rotIndex3by3Kernel
 }
 
-func ConvertToConvID(planes int, stride int) string {
-	if planes == 3 && stride == 1 {
-		return "CONV1"
-	} else if planes == 16 && stride == 1 {
-		return "CONV2"
-	} else if planes == 16 && stride == 2 {
-		return "CONV3s2"
-	} else if planes == 32 && stride == 1 {
-		return "CONV3"
-	} else if planes == 32 && stride == 2 {
-		return "CONV4s2"
-	} else if planes == 64 && stride == 1 {
-		return "CONV4"
-	}
-	return ""
-}
-
 func GetRotOptConvFeature(convID string) *ConvFeature {
 	var result ConvFeature
 	// rot -> filter -> add
 	if convID == "CONV1" { //32*32*3 -> 32*32*16, kernel=3*3, k=1
 		result.ConvID = "CONV1"
-		result.Layer = 0
-		result.LayerStr = "layer0"
-		result.X = 0
-		result.Input = 2
 
 		result.InputDataWidth = 32
 		result.InputDataHeight = 32
@@ -708,10 +714,6 @@ func GetRotOptConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV2" { //32*32*16 -> 32*32*16, kernel=3*3, k=1
 		result.ConvID = "CONV2"
-		result.Layer = 1
-		result.LayerStr = "layer1"
-		result.X = 1
-		result.Input = 1
 
 		result.InputDataWidth = 32
 		result.InputDataHeight = 32
@@ -732,10 +734,6 @@ func GetRotOptConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV3s2" { //32*32*16 -> 16*16*32, kernel=3*3, k=1->2
 		result.ConvID = "CONV3s2"
-		result.Layer = 2
-		result.LayerStr = "layer2"
-		result.X = 0
-		result.Input = 1
 
 		result.InputDataWidth = 32
 		result.InputDataHeight = 32
@@ -756,10 +754,6 @@ func GetRotOptConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV3" { //16*16*32 -> 16*16*32, kernel=3*3, k=2
 		result.ConvID = "CONV3"
-		result.Layer = 2
-		result.LayerStr = "layer2"
-		result.X = 2
-		result.Input = 2
 
 		result.InputDataWidth = 16
 		result.InputDataHeight = 16
@@ -780,10 +774,6 @@ func GetRotOptConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV4s2" { //16*16*32 -> 8*8*64, kernel=3*3, k=2->4
 		result.ConvID = "CONV4s2"
-		result.Layer = 3
-		result.LayerStr = "layer3"
-		result.X = 0
-		result.Input = 1
 
 		result.InputDataWidth = 16
 		result.InputDataHeight = 16
@@ -807,10 +797,6 @@ func GetRotOptConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV4" { //8*8*64 -> 8*8*64, kernel=3*3, k=4
 		result.ConvID = "CONV4"
-		result.Layer = 3
-		result.LayerStr = "layer3"
-		result.X = 2
-		result.Input = 1
 
 		result.InputDataWidth = 8
 		result.InputDataHeight = 8
@@ -834,6 +820,70 @@ func GetRotOptConvFeature(convID string) *ConvFeature {
 
 		result.q = 8
 
+	} else if convID == "CvTCifar100Stage2" { //8*8*64 -> 4*4*192, kernel=3*3
+		result.ConvID = "CvTCifar100Stage2"
+
+		result.InputDataWidth = 8
+		result.InputDataHeight = 8
+		result.InputDataChannel = 64
+		result.KernelSize = 3
+		result.KernelNumber = 192
+		result.Stride = 2
+		result.K = 1
+		result.AfterK = 2
+		result.BeforeCopy = 8
+		result.AfterCopy = 8
+
+		result.KernelBP = [][]int{
+			{0, 1, 2, 3, 96, 97, 98, 99},
+			{4, 5, 6, 7, 100, 101, 102, 103},
+			{8, 9, 10, 11, 104, 105, 106, 107},
+			{12, 13, 14, 15, 108, 109, 110, 111},
+			{16, 17, 18, 19, 112, 113, 114, 115},
+			{20, 21, 22, 23, 116, 117, 118, 119},
+			{24, 25, 26, 27, 120, 121, 122, 123},
+			{28, 29, 30, 31, 124, 125, 126, 127},
+			{32, 33, 34, 35, 128, 129, 130, 131},
+			{36, 37, 38, 39, 132, 133, 134, 135},
+			{40, 41, 42, 43, 136, 137, 138, 139},
+			{44, 45, 46, 47, 140, 141, 142, 143},
+			{48, 49, 50, 51, 144, 145, 146, 147},
+			{52, 53, 54, 55, 148, 149, 150, 151},
+			{56, 57, 58, 59, 152, 153, 154, 155},
+			{60, 61, 62, 63, 156, 157, 158, 159},
+			{64, 65, 66, 67, 160, 161, 162, 163},
+			{68, 69, 70, 71, 164, 165, 166, 167},
+			{72, 73, 74, 75, 168, 169, 170, 171},
+			{76, 77, 78, 79, 172, 173, 174, 175},
+			{80, 81, 82, 83, 176, 177, 178, 179},
+			{84, 85, 86, 87, 180, 181, 182, 183},
+			{88, 89, 90, 91, 184, 185, 186, 187},
+			{92, 93, 94, 95, 188, 189, 190, 191},
+		}
+
+		result.q = 24
+
+	} else if convID == "CvTCifar100Stage3" { //4*4*192 -> 2*2*384, kernel=3*3
+		result.ConvID = "CvTCifar100Stage3"
+
+		result.InputDataWidth = 4
+		result.InputDataHeight = 4
+		result.InputDataChannel = 192
+		result.KernelSize = 3
+		result.KernelNumber = 384
+		result.Stride = 2
+		result.K = 2
+		result.AfterK = 4
+		result.BeforeCopy = 8
+		result.AfterCopy = 16
+
+		result.KernelBP = [][]int{
+			{0, 8, 16, 24, 32, 40, 48, 56}, {1, 9, 17, 25, 33, 41, 49, 57}, {2, 10, 18, 26, 34, 42, 50, 58}, {3, 11, 19, 27, 35, 43, 51, 59},
+			{4, 12, 20, 28, 36, 44, 52, 60}, {5, 13, 21, 29, 37, 45, 53, 61}, {6, 14, 22, 30, 38, 46, 54, 62}, {7, 15, 23, 31, 39, 47, 55, 63},
+		}
+
+		result.q = 48
+
 	}
 
 	return &result
@@ -842,10 +892,6 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 	var result ConvFeature
 	if convID == "CONV1" { //32*32*3 -> 32*32*16, kernel=3*3, k=1
 		result.ConvID = "CONV1"
-		result.Layer = 0
-		result.LayerStr = "layer0"
-		result.X = 0
-		result.Input = 2
 
 		result.InputDataWidth = 32
 		result.InputDataHeight = 32
@@ -866,10 +912,6 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV2" { //32*32*16 -> 32*32*16, kernel=3*3, k=1
 		result.ConvID = "CONV2"
-		result.Layer = 1
-		result.LayerStr = "layer1"
-		result.X = 1
-		result.Input = 1
 
 		result.InputDataWidth = 32
 		result.InputDataHeight = 32
@@ -890,10 +932,6 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV3s2" { //32*32*16 -> 16*16*32, kernel=3*3, k=1->2
 		result.ConvID = "CONV3s2"
-		result.Layer = 2
-		result.LayerStr = "layer2"
-		result.X = 0
-		result.Input = 1
 
 		result.InputDataWidth = 32
 		result.InputDataHeight = 32
@@ -914,10 +952,6 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV3" { //16*16*32 -> 16*16*32, kernel=3*3, k=2
 		result.ConvID = "CONV3"
-		result.Layer = 2
-		result.LayerStr = "layer2"
-		result.X = 2
-		result.Input = 2
 
 		result.InputDataWidth = 16
 		result.InputDataHeight = 16
@@ -938,10 +972,6 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV4s2" { //16*16*32 -> 8*8*64, kernel=3*3, k=2->4
 		result.ConvID = "CONV4s2"
-		result.Layer = 3
-		result.LayerStr = "layer3"
-		result.X = 0
-		result.Input = 1
 
 		result.InputDataWidth = 16
 		result.InputDataHeight = 16
@@ -965,10 +995,6 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 
 	} else if convID == "CONV4" { //8*8*64 -> 8*8*64, kernel=3*3, k=4
 		result.ConvID = "CONV4"
-		result.Layer = 3
-		result.LayerStr = "layer3"
-		result.X = 2
-		result.Input = 1
 
 		result.InputDataWidth = 8
 		result.InputDataHeight = 8
@@ -992,6 +1018,70 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 
 		result.q = 8
 
+	} else if convID == "CvTCifar100Stage2" { //8*8*64 -> 4*4*192, kernel=3*3
+		result.ConvID = "CvTCifar100Stage2"
+
+		result.InputDataWidth = 8
+		result.InputDataHeight = 8
+		result.InputDataChannel = 64
+		result.KernelSize = 3
+		result.KernelNumber = 192
+		result.Stride = 2
+		result.K = 1
+		result.AfterK = 2
+		result.BeforeCopy = 8
+		result.AfterCopy = 8
+
+		result.KernelBP = [][]int{
+			{0, 1, 2, 3, 4, 5, 6, 7},
+			{8, 9, 10, 11, 12, 13, 14, 15},
+			{16, 17, 18, 19, 20, 21, 22, 23},
+			{24, 25, 26, 27, 28, 29, 30, 31},
+			{32, 33, 34, 35, 36, 37, 38, 39},
+			{40, 41, 42, 43, 44, 45, 46, 47},
+			{48, 49, 50, 51, 52, 53, 54, 55},
+			{56, 57, 58, 59, 60, 61, 62, 63},
+			{64, 65, 66, 67, 68, 69, 70, 71},
+			{72, 73, 74, 75, 76, 77, 78, 79},
+			{80, 81, 82, 83, 84, 85, 86, 87},
+			{88, 89, 90, 91, 92, 93, 94, 95},
+			{96, 97, 98, 99, 100, 101, 102, 103},
+			{104, 105, 106, 107, 108, 109, 110, 111},
+			{112, 113, 114, 115, 116, 117, 118, 119},
+			{120, 121, 122, 123, 124, 125, 126, 127},
+			{128, 129, 130, 131, 132, 133, 134, 135},
+			{136, 137, 138, 139, 140, 141, 142, 143},
+			{144, 145, 146, 147, 148, 149, 150, 151},
+			{152, 153, 154, 155, 156, 157, 158, 159},
+			{160, 161, 162, 163, 164, 165, 166, 167},
+			{168, 169, 170, 171, 172, 173, 174, 175},
+			{176, 177, 178, 179, 180, 181, 182, 183},
+			{184, 185, 186, 187, 188, 189, 190, 191},
+		}
+
+		result.q = 24
+
+	} else if convID == "CvTCifar100Stage3" { //4*4*192 -> 2*2*384, kernel=3*3
+		result.ConvID = "CvTCifar100Stage3"
+
+		result.InputDataWidth = 4
+		result.InputDataHeight = 4
+		result.InputDataChannel = 192
+		result.KernelSize = 3
+		result.KernelNumber = 384
+		result.Stride = 2
+		result.K = 2
+		result.AfterK = 4
+		result.BeforeCopy = 8
+		result.AfterCopy = 16
+
+		result.KernelBP = [][]int{
+			{0, 8, 16, 24, 32, 40, 48, 56}, {1, 9, 17, 25, 33, 41, 49, 57}, {2, 10, 18, 26, 34, 42, 50, 58}, {3, 11, 19, 27, 35, 43, 51, 59},
+			{4, 12, 20, 28, 36, 44, 52, 60}, {5, 13, 21, 29, 37, 45, 53, 61}, {6, 14, 22, 30, 38, 46, 54, 62}, {7, 15, 23, 31, 39, 47, 55, 63},
+		}
+
+		result.q = 48
+
 	}
 
 	return &result
@@ -999,10 +1089,6 @@ func GetMulParConvFeature(convID string) *ConvFeature {
 
 type ConvFeature struct {
 	ConvID           string
-	Layer            int
-	LayerStr         string
-	X                int
-	Input            int
 	InputDataWidth   int
 	InputDataHeight  int
 	InputDataChannel int
@@ -1014,6 +1100,5 @@ type ConvFeature struct {
 	BeforeCopy       int
 	AfterCopy        int
 	KernelBP         [][]int
-	Split            int
 	q                int
 }

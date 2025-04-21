@@ -18,16 +18,13 @@ type MulParConv struct {
 
 	ConvFeature *ConvFeature
 
-	layerNum           int
-	blockNum           int
-	operationNum       int
 	q                  int //length of kernel_map
 	rotIndex3by3Kernel []int
 	depth1Rotate       []int
 	depth0Rotate       []int
 }
 
-func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, resnetLayerNum int, convID string, blockNum int, operationNum int) *MulParConv {
+func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, convID string) *MulParConv {
 	// ("Conv : ", resnetLayerNum, convID, depth, blockNum, operationNum)
 
 	//MulParConv Setting
@@ -57,25 +54,26 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 
 	//depth1Rotate generate
 	var depth1Rotate []int
+	k := cf.K
 	for ki := 1; ki < cf.K; ki *= 2 {
 		depth1Rotate = append(depth1Rotate, ki)
 	}
 
 	for ki := 1; ki < cf.K; ki *= 2 {
-		depth1Rotate = append(depth1Rotate, 32*ki)
+		depth1Rotate = append(depth1Rotate, cf.InputDataWidth*k*ki)
 	}
 
 	for bi := 1; bi < cf.InputDataChannel/cf.K/cf.K; bi *= 2 {
-		depth1Rotate = append(depth1Rotate, 1024*bi)
+		depth1Rotate = append(depth1Rotate, cf.InputDataWidth*cf.InputDataWidth*k*k*bi)
 	}
 
 	//depth0Rotate generate
 	var depth0Rotate []int
 
 	for inputChannel := 0; inputChannel < cf.KernelNumber; inputChannel++ {
-		beforeLocate := getFirstLocate(0, inputChannel%cf.BeforeCopy, cf.K, isConv1)
+		beforeLocate := getFirstLocate(0, inputChannel%cf.BeforeCopy, cf, true)
 
-		afterLoate := getFirstLocate(inputChannel, 0, cf.AfterK, isConv1)
+		afterLoate := getFirstLocate(inputChannel, 0, cf, false)
 		depth0Rotate = append(depth0Rotate, beforeLocate-afterLoate)
 	}
 
@@ -95,9 +93,6 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 		preCompFilters: preCompFilters,
 		ConvFeature:    cf,
 
-		layerNum:           resnetLayerNum,
-		blockNum:           blockNum,
-		operationNum:       operationNum,
 		q:                  q,
 		rotIndex3by3Kernel: rotIndex3by3Kernel,
 		depth0Rotate:       depth0Rotate,
@@ -209,22 +204,18 @@ func MulParConvRegister(convID string) [][]int {
 
 	for ki := 1; ki < k; ki *= 2 {
 		rotateSets[1][ki] = true
-		rotateSets[1][32*ki] = true
+		rotateSets[1][ConvFeature.InputDataWidth*k*ki] = true
 	}
 
 	for bi := 1; bi < ConvFeature.InputDataChannel/k/k; bi *= 2 {
-		rotateSets[1][1024*bi] = true
+		rotateSets[1][ConvFeature.InputDataWidth*ConvFeature.InputDataWidth*k*k*bi] = true
 	}
 
 	//Depth0
-	isConv1 := false
-	if convID == "CONV1" {
-		isConv1 = true
-	}
 	for inputChannel := 0; inputChannel < ConvFeature.KernelNumber; inputChannel++ {
-		beforeLocate := getFirstLocate(0, inputChannel%ConvFeature.BeforeCopy, ConvFeature.K, isConv1)
+		beforeLocate := getFirstLocate(0, inputChannel%ConvFeature.BeforeCopy, ConvFeature, true)
 
-		afterLoate := getFirstLocate(inputChannel, 0, ConvFeature.AfterK, isConv1)
+		afterLoate := getFirstLocate(inputChannel, 0, ConvFeature, false)
 
 		rotateSets[0][beforeLocate-afterLoate] = true
 	}
@@ -246,20 +237,18 @@ func MulParConvRegister(convID string) [][]int {
 
 }
 
-func getFirstLocate(channel int, sameCopy int, k int, isCONV1 bool) int {
+func getFirstLocate(channel int, sameCopy int, cf *ConvFeature, isBefore bool) int {
 	ctLen := 32768
-	copyNum := 2
-	if k == 4 {
-		copyNum = 8
-	} else if k == 2 {
-		copyNum = 4
-	}
 
-	if isCONV1 {
-		copyNum = 8
+	k := cf.AfterK
+	w := cf.InputDataWidth / cf.Stride
+	h := cf.InputDataHeight / cf.Stride
+	if isBefore {
+		k = cf.K
+		w = cf.InputDataWidth
+		h = cf.InputDataHeight
 	}
-
-	locate := channel%k + channel%(k*k)/k*32 + channel/(k*k)*1024 + (ctLen/copyNum)*sameCopy
+	locate := channel%k + channel%(k*k)/k*w*k + channel/(k*k)*w*h*k*k + (ctLen/cf.BeforeCopy)*sameCopy
 
 	return locate
 }

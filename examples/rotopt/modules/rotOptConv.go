@@ -24,9 +24,6 @@ type RotOptConv struct {
 	dacToForTreeDepth   []int
 	ConvFeature         *ConvFeature
 
-	layerNum           int
-	blockNum           int
-	operationNum       int
 	convMap            [][]int
 	q                  int //length of kernel_map
 	rotIndex3by3Kernel []int
@@ -35,7 +32,7 @@ type RotOptConv struct {
 	depth    int
 }
 
-func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, resnetLayerNum int, convID string, depth int, blockNum int, operationNum int) *RotOptConv {
+func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, convID string, depth int) *RotOptConv {
 	//rotOptConv Setting
 	convMap, q, rotIndex3by3Kernel := GetConvBlueprints(convID, depth)
 
@@ -98,9 +95,6 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 		ConvFeature:         cf,
 		splitNum:            splitNum,
 
-		layerNum:           resnetLayerNum,
-		blockNum:           blockNum,
-		operationNum:       operationNum,
 		convMap:            convMap,
 		q:                  q,
 		rotIndex3by3Kernel: rotIndex3by3Kernel,
