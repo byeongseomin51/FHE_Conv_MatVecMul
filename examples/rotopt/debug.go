@@ -8,7 +8,7 @@ import (
 	"math/bits"
 	"math/rand"
 	"os"
-	"rotopt/engine"
+	"rotopt/modules"
 	"strconv"
 	"time"
 
@@ -401,7 +401,7 @@ func flatten2d(input [][]float64) []float64 {
 }
 
 // Multiplexed-parllel packed the input
-func MulParPacking(input3d [][][]float64, cf *engine.ConvFeature, cc *customContext) []float64 {
+func MulParPacking(input3d [][][]float64, cf *modules.ConvFeature, cc *customContext) []float64 {
 	k := cf.K
 
 	inputChannel := len(input3d)
@@ -461,7 +461,7 @@ func MulParPacking(input3d [][][]float64, cf *engine.ConvFeature, cc *customCont
 }
 
 // Encode the plain kernel
-func EncodeKernel(kernel4d [][][][]float64, cf *engine.ConvFeature, cc *customContext) [][]*rlwe.Plaintext {
+func EncodeKernel(kernel4d [][][][]float64, cf *modules.ConvFeature, cc *customContext) [][]*rlwe.Plaintext {
 
 	thick := [][]int{
 		{0, 1, 0, 1}, {0, 1, 0, 0}, {0, 1, 1, 0}, // 1, 2, 3
@@ -590,7 +590,7 @@ func multVecAndConst(A []float64, B float64) []float64 {
 }
 
 // Decrypt UnMultiplexed-parllel packed the input
-func UnMulParPacking(input *rlwe.Ciphertext, cf *engine.ConvFeature, cc *customContext) [][][]float64 {
+func UnMulParPacking(input *rlwe.Ciphertext, cf *modules.ConvFeature, cc *customContext) [][][]float64 {
 
 	k := cf.AfterK
 
