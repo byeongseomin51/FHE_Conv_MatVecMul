@@ -27,7 +27,7 @@ func NewMulParDS(planes int, ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.P
 	//make plaintext
 	if planes == 16 {
 		for channel := 0; channel < 16; channel++ {
-			preCompFilters[channel] = floatToPlain(multVec(StrideFilter(1), GeneralFilter((channel%8)*4, channel/8, 2)), ec, params)
+			preCompFilters[channel] = floatToPlain(multVec(StrideFilter(1, 32), GeneralFilter((channel%8)*4, channel/8, 2)), ec, params)
 
 			originalLocate := 1024 * channel
 			resultLocate := 2048 + (channel/4)*1024 + (channel%4)/2*32 + channel%4%2
@@ -36,7 +36,7 @@ func NewMulParDS(planes int, ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.P
 	} else if planes == 32 { // 0 4 16 20 32 36 48 52
 		for channel := 0; channel < 16; channel++ {
 			f := AndVec(GeneralFilter((channel%8)%2*4+(channel%8)/2*16, channel/8, 4), GeneralFilter((channel%8)%2*4+(channel%8)/2*16+1, channel/8, 4))
-			preCompFilters[channel] = floatToPlain(multVec(StrideFilter(2), f), ec, params)
+			preCompFilters[channel] = floatToPlain(multVec(StrideFilter(2, 16), f), ec, params)
 			originalLocate := 1024*(channel/2) + 32*(channel%2)
 			resultLocate := 1024 + (channel/8)*1024 + (channel%8)/2*32 + (channel%8%2)*2
 			rotChannel[channel] = originalLocate - resultLocate

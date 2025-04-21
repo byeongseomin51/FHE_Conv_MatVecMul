@@ -145,7 +145,7 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 
 			if convFeatureMap.Stride != 1 {
 				for t := 0; t < len(nonSplitFilter); t++ {
-					nonSplitFilter[t] = multVec(nonSplitFilter[t], StrideFilter(convFeatureMap.K))
+					nonSplitFilter[t] = multVec(nonSplitFilter[t], StrideFilter(convFeatureMap.K, convFeatureMap.InputDataWidth))
 				}
 			}
 			splitNum := 0
@@ -172,24 +172,24 @@ func MakeTxtRotOptConvFilter(convID string, depth int, encoder *ckks.Encoder, pa
 	}
 	return preCompFilter, lastFilter
 }
-func StrideFilter(k int) []float64 {
+func StrideFilter(k int, w int) []float64 { //for stride=2
 	var strideFilter []float64
 
 	if k == 1 {
-		for ii := 0; ii < 32768/64; ii++ {
-			for i := 0; i < 16; i++ {
+		for ii := 0; ii < 32768/(2*w*k); ii++ {
+			for i := 0; i < w*k/2; i++ {
 				strideFilter = append(strideFilter, 1, 0)
 			}
-			for i := 0; i < 32; i++ {
+			for i := 0; i < w*k; i++ {
 				strideFilter = append(strideFilter, 0)
 			}
 		}
 	} else if k == 2 {
-		for ii := 0; ii < 32768/128; ii++ {
-			for i := 0; i < 16; i++ {
+		for ii := 0; ii < 32768/(4*w*k); ii++ {
+			for i := 0; i < w*k*2/4; i++ {
 				strideFilter = append(strideFilter, 1, 1, 0, 0)
 			}
-			for i := 0; i < 64; i++ {
+			for i := 0; i < w*k*2; i++ {
 				strideFilter = append(strideFilter, 0)
 			}
 		}
@@ -270,58 +270,73 @@ func crossFilter(filter []float64, splitNum int) [][]float64 {
 
 	return crossFilter
 }
-
-func LeftUpFilter(k int, isCONV1 bool) []float64 {
+func LeftUpFilter(cf *ConvFeature) []float64 {
 	var filter []float64
-	b := 1
-	if k == 1 && isCONV1 {
-		b = 8
-		for block := 0; block < b; block++ {
-			for i := 0; i < 32768/b; i++ {
-				if i < 1024 {
-					filter = append(filter, 1)
-				} else {
-					filter = append(filter, 0)
-				}
-			}
-		}
-	} else if k == 1 && isCONV1 == false {
-		b = 2
-		for block := 0; block < b; block++ {
-			for i := 0; i < 32768/b; i++ {
-				if i < 1024 {
-					filter = append(filter, 1)
-				} else {
-					filter = append(filter, 0)
-				}
-			}
-		}
-	} else if k == 2 {
-		b = 4
-		for block := 0; block < b; block++ {
-			for i := 0; i < 32768/b; i++ {
-				if i%k == 0 && (i/32)%k == 0 && i < 1024 {
-					filter = append(filter, 1)
-				} else {
-					filter = append(filter, 0)
-				}
-			}
-		}
-	} else if k == 4 {
-		b = 8
-		for block := 0; block < b; block++ {
-			for i := 0; i < 32768/b; i++ {
-				if i%k == 0 && (i/32)%k == 0 && i < 1024 {
-					filter = append(filter, 1)
-				} else {
-					filter = append(filter, 0)
-				}
+	k := cf.K
+	for block := 0; block < cf.BeforeCopy; block++ {
+		for i := 0; i < 32768/cf.BeforeCopy; i++ {
+			if i%k == 0 && (i/(cf.InputDataWidth*k))%k == 0 && i < cf.InputDataWidth*cf.InputDataHeight*k*k {
+				filter = append(filter, 1)
+			} else {
+				filter = append(filter, 0)
 			}
 		}
 	}
 
 	return filter
 }
+
+// func LeftUpFilter(k int, isCONV1 bool) []float64 {
+// 	var filter []float64
+// 	b := 1
+// 	if k == 1 && isCONV1 {
+// 		b = 8
+// 		for block := 0; block < b; block++ {
+// 			for i := 0; i < 32768/b; i++ {
+// 				if i < 1024 {
+// 					filter = append(filter, 1)
+// 				} else {
+// 					filter = append(filter, 0)
+// 				}
+// 			}
+// 		}
+// 	} else if k == 1 && isCONV1 == false {
+// 		b = 2
+// 		for block := 0; block < b; block++ {
+// 			for i := 0; i < 32768/b; i++ {
+// 				if i < 1024 {
+// 					filter = append(filter, 1)
+// 				} else {
+// 					filter = append(filter, 0)
+// 				}
+// 			}
+// 		}
+// 	} else if k == 2 {
+// 		b = 4
+// 		for block := 0; block < b; block++ {
+// 			for i := 0; i < 32768/b; i++ {
+// 				if i%k == 0 && (i/32)%k == 0 && i < 1024 {
+// 					filter = append(filter, 1)
+// 				} else {
+// 					filter = append(filter, 0)
+// 				}
+// 			}
+// 		}
+// 	} else if k == 4 {
+// 		b = 8
+// 		for block := 0; block < b; block++ {
+// 			for i := 0; i < 32768/b; i++ {
+// 				if i%k == 0 && (i/32)%k == 0 && i < 1024 {
+// 					filter = append(filter, 1)
+// 				} else {
+// 					filter = append(filter, 0)
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	return filter
+// }
 
 func MakeTxtRotOptConvWeight() {
 	layerNums := []int{20, 32, 44, 56, 110}

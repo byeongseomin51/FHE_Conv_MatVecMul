@@ -37,14 +37,10 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 	var preCompFilter []*rlwe.Plaintext
 
 	// preCompFilter generate
-	isConv1 := false
-	if convID == "CONV1" {
-		isConv1 = true
-	}
 	preCompFilter = make([]*rlwe.Plaintext, cf.BeforeCopy)
-	luFilter := LeftUpFilter(cf.K, isConv1)
+	luFilter := LeftUpFilter(cf)
 	if cf.Stride != 1 {
-		luFilter = multVec(luFilter, StrideFilter(cf.K))
+		luFilter = multVec(luFilter, StrideFilter(cf.K, cf.InputDataWidth))
 	}
 	spFilter := crossFilter(luFilter, cf.BeforeCopy)
 	for i := 0; i < cf.BeforeCopy; i++ {
