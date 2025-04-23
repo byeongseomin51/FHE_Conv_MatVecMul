@@ -120,6 +120,9 @@ func main() {
 
 	// Generalization of different AI models
 	if Contains(args, "otherConv") || args[0] == "ALL" {
+		// Each convolution refers to...
+		// CvTCifar100Stage2, CvTCifar100Stage3 : convolutional embedding in CvT (Convolutional Vision Transformer) model.
+		// MUSE_PyramidGenConv 			  		: create a multi-scale feature pyramid from a single-scale feature map in MUSE (a model based on Mamba). https://ojs.aaai.org/index.php/AAAI/article/view/32778
 		otherMulParConvTimeTest(context)
 	}
 }
@@ -137,7 +140,7 @@ type customContext struct {
 }
 
 func otherRotOptConvTimeTest(cc *customContext, depth int) {
-	fmt.Printf("\nRotation Optimized Convolution (for %d-depth consumed) time test started!\n", depth)
+	fmt.Printf("\nRotation Optimized Convolution (for %d-depth consumed, complex AI model) time test started!\n", depth)
 
 	var convIDs []string
 	var maxDepth []int
@@ -232,15 +235,15 @@ func otherRotOptConvTimeTest(cc *customContext, depth int) {
 	}
 }
 func otherMulParConvTimeTest(cc *customContext) {
-	fmt.Println("\nMultiplexed Parallel Convolution time test started!")
+	fmt.Println("\nMultiplexed Parallel Convolution (for complex AI model) time test started!")
 
-	convIDs := []string{"CvTCifar100Stage2"}
+	convIDs := []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
 
 	//Set iter
 	iter := 1
 
 	minStartCipherLevel := 2
-	maxStartCipherLevel := 3 //원
+	maxStartCipherLevel := cc.Params.MaxLevel()
 
 	for index := 0; index < len(convIDs); index++ {
 		convID := convIDs[index]
@@ -261,6 +264,7 @@ func otherMulParConvTimeTest(cc *customContext) {
 
 		//Plaintext Convolution
 		plainOutput := PlainConvolution2D(plainInput, plainKernel, cf.Stride, 1)
+		// print3DArray(plainOutput)
 
 		// Encrypt Input, Encode Kernel
 		mulParPackedInput := MulParPacking(plainInput, cf, cc)
@@ -288,6 +292,7 @@ func otherMulParConvTimeTest(cc *customContext) {
 
 				// MSE, RE, inf Norm
 				FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
+				// print3DArray(FHEOutput)
 				scores := MSE_RE_infNorm(plainOutput, FHEOutput)
 				MSEList = append(MSEList, scores[0])
 				REList = append(REList, scores[1])

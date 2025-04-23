@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -286,313 +285,6 @@ func LeftUpFilter(cf *ConvFeature) []float64 {
 	return filter
 }
 
-// func LeftUpFilter(k int, isCONV1 bool) []float64 {
-// 	var filter []float64
-// 	b := 1
-// 	if k == 1 && isCONV1 {
-// 		b = 8
-// 		for block := 0; block < b; block++ {
-// 			for i := 0; i < 32768/b; i++ {
-// 				if i < 1024 {
-// 					filter = append(filter, 1)
-// 				} else {
-// 					filter = append(filter, 0)
-// 				}
-// 			}
-// 		}
-// 	} else if k == 1 && isCONV1 == false {
-// 		b = 2
-// 		for block := 0; block < b; block++ {
-// 			for i := 0; i < 32768/b; i++ {
-// 				if i < 1024 {
-// 					filter = append(filter, 1)
-// 				} else {
-// 					filter = append(filter, 0)
-// 				}
-// 			}
-// 		}
-// 	} else if k == 2 {
-// 		b = 4
-// 		for block := 0; block < b; block++ {
-// 			for i := 0; i < 32768/b; i++ {
-// 				if i%k == 0 && (i/32)%k == 0 && i < 1024 {
-// 					filter = append(filter, 1)
-// 				} else {
-// 					filter = append(filter, 0)
-// 				}
-// 			}
-// 		}
-// 	} else if k == 4 {
-// 		b = 8
-// 		for block := 0; block < b; block++ {
-// 			for i := 0; i < 32768/b; i++ {
-// 				if i%k == 0 && (i/32)%k == 0 && i < 1024 {
-// 					filter = append(filter, 1)
-// 				} else {
-// 					filter = append(filter, 0)
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	return filter
-// }
-
-func MakeTxtRotOptConvWeight() {
-	layerNums := []int{20, 32, 44, 56, 110}
-	for _, layerNum := range layerNums {
-		originalFolderPath := "engine/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/"
-		modifiedFolderPath := "engine/precomputed/rotOptConv/kernelWeight/" + strconv.Itoa(layerNum) + "/"
-
-		// Make kernel weight
-		err := filepath.Walk(originalFolderPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if info.IsDir() {
-				return nil
-			}
-
-			originalFileName := filepath.Base(path)
-			nameSplited := strings.Split(originalFileName, "_")
-
-			modifiedFilePath := modifiedFolderPath
-
-			switch nameSplited[0] {
-			case "layer1":
-				//Make modified file path
-				modifiedFilePath = modifiedFilePath + "layer1/" + nameSplited[1] + "/"
-				for i := 2; i < len(nameSplited); i++ {
-					modifiedFilePath += nameSplited[i]
-					if i != len(nameSplited)-1 {
-						modifiedFilePath += "_"
-					}
-				}
-				//For Conv Param
-				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
-					var x int
-					if nameSplited[2] == "conv1" {
-						x = 1
-					} else {
-						x = 2
-					}
-					makeModifyKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					//For BN param
-				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
-					makeBn(32, 1, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
-				}
-			case "layer2":
-				//Make modified file path
-				modifiedFilePath = modifiedFilePath + "layer2/" + nameSplited[1] + "/"
-				for i := 2; i < len(nameSplited); i++ {
-					modifiedFilePath += nameSplited[i]
-					if i != len(nameSplited)-1 {
-						modifiedFilePath += "_"
-					}
-				}
-				//For Conv Param
-				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
-					var x int
-					if nameSplited[2] == "conv1" {
-						x = 1
-					} else {
-						x = 2
-					}
-					if nameSplited[1] == "0" && nameSplited[2] == "conv1" {
-						makeModifyKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV3s2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					} else {
-						makeModifyKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV3", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					}
-					//For BN param
-				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
-					makeBn(16, 2, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
-				}
-
-			case "layer3":
-				//Make modified file path
-				modifiedFilePath = modifiedFilePath + "layer3/" + nameSplited[1] + "/"
-				for i := 2; i < len(nameSplited); i++ {
-					modifiedFilePath += nameSplited[i]
-					if i != len(nameSplited)-1 {
-						modifiedFilePath += "_"
-					}
-				}
-				//For Conv Param
-				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
-					var x int
-					if nameSplited[2] == "conv1" {
-						x = 1
-					} else {
-						x = 2
-					}
-					if nameSplited[1] == "0" && nameSplited[2] == "conv1" {
-						makeModifyKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV4s2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					} else {
-						makeModifyKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV4", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					}
-					//For BN param
-				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
-					makeBn(8, 4, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
-				}
-			case "linear":
-				// modifiedFilePath = modifiedFilePath + "linear/" + nameSplited[1]
-				// if nameSplited[1] == "bias.txt" {
-				// 	makeBias(originalFolderPath+originalFileName, modifiedFilePath)
-				// } else if nameSplited[1] == "weight.txt" {
-				// 	makeLinearWeight(originalFolderPath+originalFileName, modifiedFilePath)
-				// }
-			default:
-				//Make modified file path
-				modifiedFilePath += "layer0/0/"
-				//For Conv Param
-				if nameSplited[0] == "conv1" {
-					modifiedFilePath += "conv1_weight.txt"
-					makeModifyKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV1", originalFolderPath+"bn1")
-
-					//For BN1 param
-				} else if nameSplited[0] == "bn1" && nameSplited[1] == "bias.txt" {
-					makeBn(32, 1, originalFolderPath+nameSplited[0], modifiedFilePath+"bn1")
-				}
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			fmt.Println("error:", err)
-		}
-	}
-
-}
-
-func MakeTxtMulParConvWeight() {
-	layerNums := []int{20, 32, 44, 56, 110}
-	for _, layerNum := range layerNums {
-		originalFolderPath := "engine/precomputed/resnetPtParam/" + strconv.Itoa(layerNum) + "/"
-		modifiedFolderPath := "engine/precomputed/mulParConv/kernelWeight/" + strconv.Itoa(layerNum) + "/"
-
-		// Make kernel weight
-		err := filepath.Walk(originalFolderPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if info.IsDir() {
-				return nil
-			}
-
-			originalFileName := filepath.Base(path)
-			nameSplited := strings.Split(originalFileName, "_")
-
-			modifiedFilePath := modifiedFolderPath
-
-			switch nameSplited[0] {
-			case "layer1":
-				//Make modified file path
-				modifiedFilePath = modifiedFilePath + "layer1/" + nameSplited[1] + "/"
-				for i := 2; i < len(nameSplited); i++ {
-					modifiedFilePath += nameSplited[i]
-					if i != len(nameSplited)-1 {
-						modifiedFilePath += "_"
-					}
-				}
-				//For Conv Param
-				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
-					var x int
-					if nameSplited[2] == "conv1" {
-						x = 1
-					} else {
-						x = 2
-					}
-					makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					//For BN param
-				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
-					makeBn(32, 1, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
-				}
-			case "layer2":
-				//Make modified file path
-				modifiedFilePath = modifiedFilePath + "layer2/" + nameSplited[1] + "/"
-				for i := 2; i < len(nameSplited); i++ {
-					modifiedFilePath += nameSplited[i]
-					if i != len(nameSplited)-1 {
-						modifiedFilePath += "_"
-					}
-				}
-				//For Conv Param
-				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
-					var x int
-					if nameSplited[2] == "conv1" {
-						x = 1
-					} else {
-						x = 2
-					}
-					if nameSplited[1] == "0" && nameSplited[2] == "conv1" {
-						makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV3s2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					} else {
-						makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV3", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					}
-					//For BN param
-				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
-					makeBn(16, 2, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
-				}
-
-			case "layer3":
-				//Make modified file path
-				modifiedFilePath = modifiedFilePath + "layer3/" + nameSplited[1] + "/"
-				for i := 2; i < len(nameSplited); i++ {
-					modifiedFilePath += nameSplited[i]
-					if i != len(nameSplited)-1 {
-						modifiedFilePath += "_"
-					}
-				}
-				//For Conv Param
-				if nameSplited[2] == "conv1" || nameSplited[2] == "conv2" {
-					var x int
-					if nameSplited[2] == "conv1" {
-						x = 1
-					} else {
-						x = 2
-					}
-					if nameSplited[1] == "0" && nameSplited[2] == "conv1" {
-						makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV4s2", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					} else {
-						makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV4", originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_bn"+strconv.Itoa(x))
-					}
-					//For BN param
-				} else if (nameSplited[2] == "bn1" && nameSplited[3] == "bias.txt") || (nameSplited[2] == "bn2" && nameSplited[3] == "bias.txt") {
-					makeBn(8, 4, originalFolderPath+nameSplited[0]+"_"+nameSplited[1]+"_"+nameSplited[2], modifiedFolderPath+nameSplited[0]+"/"+nameSplited[1]+"/"+nameSplited[2])
-				}
-			case "linear":
-				// modifiedFilePath = modifiedFilePath + "linear/" + nameSplited[1]
-				// if nameSplited[1] == "bias.txt" {
-				// 	makeBias(originalFolderPath+originalFileName, modifiedFilePath)
-				// } else if nameSplited[1] == "weight.txt" {
-				// 	makeLinearWeight(originalFolderPath+originalFileName, modifiedFilePath)
-				// }
-			default:
-				//Make modified file path
-				modifiedFilePath += "layer0/0/"
-				//For Conv Param
-				if nameSplited[0] == "conv1" {
-					modifiedFilePath += "conv1_weight.txt"
-					makeModifyMulParKernel(originalFolderPath+originalFileName, modifiedFilePath, "CONV1", originalFolderPath+"bn1")
-
-					//For BN1 param
-				} else if nameSplited[0] == "bn1" && nameSplited[1] == "bias.txt" {
-					makeBn(32, 1, originalFolderPath+nameSplited[0], modifiedFilePath+"bn1")
-				}
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			fmt.Println("error:", err)
-		}
-	}
-
-}
 func makeModifyMulParKernel(inputFilePath, outputFilePath, convID, inputBNPath string) {
 	originalKernel := kernelTxtToVector(inputFilePath)
 
@@ -641,6 +333,11 @@ func makeModifyMulParKernel(inputFilePath, outputFilePath, convID, inputBNPath s
 						outputKernel[km][w] = append(outputKernel[km][w], 0)
 					}
 				}
+				if convID == "CvTCifar100Stage3" {
+					for x := 0; x < 1024; x++ {
+						outputKernel[km][w] = append(outputKernel[km][w], 0)
+					}
+				}
 			}
 			// fmt.Println(len(mapFeatures.kernelMap[km]), len(originalKernel[0]), len(flattenFilter[w]), len(outputKernel[km][w]))
 		}
@@ -681,59 +378,6 @@ func makeModifyMulParKernel(inputFilePath, outputFilePath, convID, inputBNPath s
 		}
 	}
 
-}
-
-// Making bn_add. Make bnMult too, but don't save.
-func makeBn(dataWidth, packing int, inputBNPath, outputBNPath string) {
-
-	var bias, runningMean, runningVar, weight, alpha, bnAdd []float64 //bnMult
-
-	bias = simpleTxtReader(inputBNPath + "_bias.txt")
-	runningMean = simpleTxtReader(inputBNPath + "_running_mean.txt")
-	runningVar = simpleTxtReader(inputBNPath + "_running_var.txt")
-	weight = simpleTxtReader(inputBNPath + "_weight.txt")
-
-	// ((x-mean)/root(var+0.00001))*weight+bias => x*alpha + (bias-mean*alpha)
-	// (alpha = weight/root(var+0.00001))
-	for i := 0; i < len(weight); i++ {
-		alpha = append(alpha, weight[i]/math.Sqrt(runningVar[i]+0.00001))
-	}
-
-	// bnMult = alpha
-
-	for i := 0; i < len(weight); i++ {
-		bnAdd = append(bnAdd, bias[i]-runningMean[i]*alpha[i])
-	}
-
-	bnAdd = packAndCopy(dataWidth, packing, bnAdd)
-	// bnMult = packAndCopy(dataWidth, packing, bnMult)
-
-	if err := os.MkdirAll(outputBNPath[:len(outputBNPath)-3], 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "CannotMake Direc: %s\n", outputBNPath)
-		return
-	}
-
-	outputFile, err := os.Create(outputBNPath + "_add.txt")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot open modified bn_add: %s\n", outputBNPath+"_add.txt")
-		return
-	}
-	defer outputFile.Close()
-
-	writer := bufio.NewWriter(outputFile)
-	for _, value := range bnAdd {
-		_, err := fmt.Fprintf(writer, "%.15f\n", value)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot write modified bn_add: %v\n", err)
-			return
-		}
-	}
-	if err := writer.Flush(); err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot write modified bn_add: %v\n", err)
-		return
-	}
-
-	fmt.Printf("%s : modified bn_add length %d\n", outputBNPath+"_add.txt", len(bnAdd))
 }
 
 func makeModifyKernel(inputFilePath, outputFilePath, convID, inputBNPath string) {
@@ -780,6 +424,11 @@ func makeModifyKernel(inputFilePath, outputFilePath, convID, inputBNPath string)
 					}
 				}
 				if convID == "CONV1" {
+					for x := 0; x < 1024; x++ {
+						outputKernel[km][w] = append(outputKernel[km][w], 0)
+					}
+				}
+				if convID == "CvTCifar100Stage3" {
 					for x := 0; x < 1024; x++ {
 						outputKernel[km][w] = append(outputKernel[km][w], 0)
 					}

@@ -444,6 +444,11 @@ func MulParPacking(input3d [][][]float64, cf *modules.ConvFeature, cc *customCon
 			output1d = append(output1d, 0)
 		}
 	}
+	if cf.ConvID == "CvTCifar100Stage3" {
+		for i := 0; i < 1024; i++ {
+			output1d = append(output1d, 0)
+		}
+	}
 
 	// Make it parallel
 	cipherLen := 32768
@@ -494,6 +499,11 @@ func EncodeKernel(kernel4d [][][][]float64, cf *modules.ConvFeature, cc *customC
 					}
 				}
 				if cf.ConvID == "CONV1" {
+					for x := 0; x < 1024; x++ {
+						outputKernel[km][w] = append(outputKernel[km][w], 0)
+					}
+				}
+				if cf.ConvID == "CvTCifar100Stage3" {
 					for x := 0; x < 1024; x++ {
 						outputKernel[km][w] = append(outputKernel[km][w], 0)
 					}
@@ -604,6 +614,14 @@ func UnMulParPacking(input *rlwe.Ciphertext, cf *modules.ConvFeature, cc *custom
 	inputChannel := outputChannel / (k * k)
 	inputHeight := outputHeight * k
 	inputWidth := outputWidth * k
+
+	// for i := 0; i < len(plainInput); i++ {
+	// 	if plainInput[i] > 0.00001 || plainInput[i] < -0.00001 {
+	// 		fmt.Printf("%.2f ", plainInput[i])
+	// 	} else {
+	// 		fmt.Print("0 ")
+	// 	}
+	// }
 
 	// Make it UnParallel
 	input3d := make([][][]float64, inputChannel)

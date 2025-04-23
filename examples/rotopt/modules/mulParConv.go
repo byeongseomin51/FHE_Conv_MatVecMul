@@ -59,7 +59,8 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 		depth1Rotate = append(depth1Rotate, cf.InputDataWidth*k*ki)
 	}
 
-	for bi := 1; bi < cf.InputDataChannel/cf.K/cf.K; bi *= 2 {
+	power_of_2_channel := ceilPow2Int(cf.InputDataChannel)
+	for bi := 1; bi < power_of_2_channel/cf.K/cf.K; bi *= 2 {
 		depth1Rotate = append(depth1Rotate, cf.InputDataWidth*cf.InputDataWidth*k*k*bi)
 	}
 
@@ -71,6 +72,8 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 
 		afterLoate := getFirstLocate(inputChannel, 0, cf, false)
 		depth0Rotate = append(depth0Rotate, beforeLocate-afterLoate)
+
+		// fmt.Printf("%d %d %d\n", inputChannel, beforeLocate, afterLoate)
 	}
 
 	//PerRotate preCompFilter to minimze rescaling
@@ -203,7 +206,8 @@ func MulParConvRegister(convID string) [][]int {
 		rotateSets[1][ConvFeature.InputDataWidth*k*ki] = true
 	}
 
-	for bi := 1; bi < ConvFeature.InputDataChannel/k/k; bi *= 2 {
+	power_of_2_channel := ceilPow2Int(ConvFeature.InputDataChannel)
+	for bi := 1; bi < power_of_2_channel/k/k; bi *= 2 {
 		rotateSets[1][ConvFeature.InputDataWidth*ConvFeature.InputDataWidth*k*k*bi] = true
 	}
 
@@ -247,4 +251,24 @@ func getFirstLocate(channel int, sameCopy int, cf *ConvFeature, isBefore bool) i
 	locate := channel%k + channel%(k*k)/k*w*k + channel/(k*k)*w*h*k*k + (ctLen/cf.BeforeCopy)*sameCopy
 
 	return locate
+}
+
+func ceilPow2Int(a int) int {
+	if a <= 0 {
+		return 1
+	}
+
+	x := a - 1
+	x |= x >> 1
+	x |= x >> 2
+	x |= x >> 4
+	x |= x >> 8
+	x |= x >> 16
+
+	// 64비트 시스템 대응
+	if (^uint(0) >> 32) != 0 {
+		x |= x >> 32
+	}
+
+	return x + 1
 }
