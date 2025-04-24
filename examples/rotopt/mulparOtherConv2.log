@@ -1,0 +1,26 @@
+args :  [otherConv]
+
+Multiplexed Parallel Convolution (for complex AI model) time test started!
+CKKS parameter set as : PN15QP880CI <= 이걸로 돌림
+=== convID : MUSE_PyramidGenConv, Depth : 2, CipherLevel : 2 ~ 17, iter : 1 === 
+startLevel executionTime(sec)
+2 34.788555598 
+3 40.957307399 
+4 62.610940015 
+5 69.685251907 
+6 78.411693781 
+7 108.230344427 
+8 124.340268482 
+9 135.401403225 
+10 176.941889108 
+11 191.033778016 
+12 207.44934418 
+13 251.67309277 
+14 267.132023877 
+15 287.01417602 
+16 335.783770328 
+17 359.600880946 
+MSE (Mean Squared Error)   : Min = 4.22e-13, Max = 4.31e-13, Avg = 4.26e-13
+Relative Error             : Min = 1.95e-07, Max = 2.86e-07, Avg = 2.29e-07
+Infinity Norm (L-infinity) : Min = 2.65e-06, Max = 3.06e-06, Avg = 2.90e-06
+

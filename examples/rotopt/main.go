@@ -37,8 +37,8 @@ func main() {
 	}
 
 	//CKKS settings 원
-	// context := setCKKSEnv() //CKKS environment
-	context := setCKKSEnvUseParamSet("PN15QP880CI")
+	context := setCKKSEnv() //CKKS environment
+	// context := setCKKSEnvUseParamSet("PN15QP880CI")
 
 	//basicOperationTimeTest
 	if Contains(args, "basic") || args[0] == "ALL" {
@@ -246,7 +246,14 @@ func otherMulParConvTimeTest(cc *customContext) {
 	maxStartCipherLevel := cc.Params.MaxLevel()
 
 	for index := 0; index < len(convIDs); index++ {
+		// Get ConvID
 		convID := convIDs[index]
+		if convID == "MUSE_PyramidGenConv" {
+			cc = setCKKSEnvUseParamSet("PN15QP880CI")
+			fmt.Println("CKKS parameter set as : PN15QP880CI")
+
+			maxStartCipherLevel = cc.Params.MaxLevel()
+		}
 
 		//register index of rotation
 		rots := modules.MulParConvRegister(convID)
