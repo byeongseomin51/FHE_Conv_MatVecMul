@@ -713,11 +713,11 @@ func MSE_RE_infNorm(trueVal [][][]float64, predictVal [][][]float64) []float64 {
 	}
 
 	//for debug
-	for i := 0; i < len(trueFlat); i++ {
-		if (trueFlat[i]-predFlat[i])*(trueFlat[i]-predFlat[i]) > 0.1 {
-			fmt.Printf("%v ", i)
-		}
-	}
+	// for i := 0; i < len(trueFlat); i++ {
+	// 	if (trueFlat[i]-predFlat[i])*(trueFlat[i]-predFlat[i]) > 0.1 {
+	// 		fmt.Printf("%v ", i)
+	// 	}
+	// }
 
 	mseVal := mse(trueFlat, predFlat)
 	reVal := relativeError(trueFlat, predFlat)

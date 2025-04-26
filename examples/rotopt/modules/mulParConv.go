@@ -1,8 +1,6 @@
 package modules
 
 import (
-	"fmt"
-
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
@@ -102,7 +100,7 @@ func NewMulParConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 
 func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
-	rot_num := -1
+	// rot_num := -1
 
 	mainCipher := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 	tempCtLv1 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
@@ -115,7 +113,7 @@ func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	var rotInput []*rlwe.Ciphertext
 	for w := 0; w < 9; w++ {
 		c, err := obj.Evaluator.RotateNew(ctIn, obj.rotIndex3by3Kernel[w])
-		rot_num++
+		// rot_num++
 		ErrorPrint(err)
 		rotInput = append(rotInput, c)
 	}
@@ -146,7 +144,7 @@ func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		for rotLeftUp := 0; rotLeftUp < len(obj.depth1Rotate); rotLeftUp++ {
 
 			err = obj.Evaluator.Rotate(mainCipher, obj.depth1Rotate[rotLeftUp], tempCtLv1)
-			rot_num++
+			// rot_num++
 			ErrorPrint(err)
 
 			err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
@@ -157,12 +155,12 @@ func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		for eachCopy := 0; eachCopy < obj.ConvFeature.BeforeCopy; eachCopy++ {
 			if cipherNum == 0 && eachCopy == 0 {
 				temp, err := obj.Evaluator.RotateNew(mainCipher, obj.depth0Rotate[cipherNum*obj.ConvFeature.BeforeCopy+eachCopy])
-				rot_num++
+				// rot_num++
 				ErrorPrint(err)
 				ctOut, _ = obj.Evaluator.MulNew(temp, obj.preCompFilters[cipherNum][eachCopy])
 			} else {
 				temp, err := obj.Evaluator.RotateNew(mainCipher, obj.depth0Rotate[cipherNum*obj.ConvFeature.BeforeCopy+eachCopy])
-				rot_num++
+				// rot_num++
 				ErrorPrint(err)
 				obj.Evaluator.Mul(temp, obj.preCompFilters[cipherNum][eachCopy], temp)
 				ErrorPrint(err)
@@ -177,7 +175,7 @@ func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	for afterCopy := 32768 / obj.ConvFeature.AfterCopy; afterCopy < 32768; afterCopy *= 2 {
 		obj.Evaluator.Rotate(ctOut, -afterCopy, tempCtLv0)
-		rot_num++
+		// rot_num++
 		obj.Evaluator.Add(ctOut, tempCtLv0, ctOut)
 	}
 
@@ -185,7 +183,7 @@ func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	// ctOut, err = obj.Evaluator.AddNew(ctOut, obj.preCompBNadd)
 	ErrorPrint(err)
 
-	fmt.Printf("rot_num %d\n", rot_num)
+	// fmt.Printf("rot_num %d\n", rot_num)
 	return ctOut
 }
 
