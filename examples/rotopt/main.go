@@ -53,9 +53,9 @@ func main() {
 	// Convolution Tests 원
 	if Contains(args, "conv") || args[0] == "ALL" {
 		rotOptConvTimeTest(context, 2)
-		rotOptConvTimeTest(context, 3)
-		rotOptConvTimeTest(context, 4)
-		rotOptConvTimeTest(context, 5)
+		// rotOptConvTimeTest(context, 3)
+		// rotOptConvTimeTest(context, 4)
+		// rotOptConvTimeTest(context, 5)
 		// mulParConvTimeTest(context)
 	}
 
@@ -125,8 +125,8 @@ func main() {
 		// otherRotOptConvTimeTest(context, 2)
 		// otherRotOptConvTimeTest(context, 3)
 		// otherRotOptConvTimeTest(context, 4)
-		otherRotOptConvTimeTest(context, 5)
-		// otherRotOptConvTimeTest(context, 6)
+		// otherRotOptConvTimeTest(context, 5)
+		otherRotOptConvTimeTest(context, 6)
 		// otherRotOptConvTimeTest(context, 7)
 		// otherRotOptConvTimeTest(context, 8)
 		// otherRotOptConvTimeTest(context, 9)
@@ -366,8 +366,8 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 
 	iter := 1
 	minStartCipherLevel := depth
-	// maxStartCipherLevel := cc.Params.MaxLevel()
-	maxStartCipherLevel := 5
+	// maxStartCipherLevel := cc.Params.MaxLevel() //원
+	maxStartCipherLevel := depth + 2
 
 	for index := 0; index < len(convIDs); index++ {
 
@@ -1191,22 +1191,6 @@ func floatToCiphertextLevel(floatInput []float64, level int, params ckks.Paramet
 	return exCipher
 }
 
-func getConvTestNum(convID string) []int {
-	if convID == "CONV1" {
-		return []int{0, 1}
-	} else if convID == "CONV2" {
-		return []int{0, 1}
-	} else if convID == "CONV3s2" {
-		return []int{0, 1}
-	} else if convID == "CONV3" {
-		return []int{0, 2}
-	} else if convID == "CONV4s2" {
-		return []int{0, 1}
-	} else if convID == "CONV4" {
-		return []int{0, 2}
-	}
-	return []int{}
-}
 func MakeGalois(cc *customContext, rotIndexes [][]int) [][]*rlwe.GaloisKey {
 
 	galEls := make([][]*rlwe.GaloisKey, len(rotIndexes))
