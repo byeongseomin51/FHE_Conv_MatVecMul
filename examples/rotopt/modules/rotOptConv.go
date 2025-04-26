@@ -103,8 +103,6 @@ func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 	mainCipher := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 	tempCtLv1 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 
-	obj.rot_num = -1 //원 0일떄도 카운팅이되서
-
 	var err error
 	// Rotate Data
 	var rotInput []*rlwe.Ciphertext
@@ -291,6 +289,7 @@ func (obj *RotOptConv) dac_for_opType1(ctOut *rlwe.Ciphertext, startKernel int, 
 }
 
 func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+	obj.rot_num = -1 //원
 	if obj.depth == 2 {
 		return obj.Foward2depth(ctIn) //2 depth consuming rotation optimized convolution.
 	}

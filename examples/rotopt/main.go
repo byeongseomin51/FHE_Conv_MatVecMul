@@ -123,9 +123,9 @@ func main() {
 		// CvTCifar100Stage2, CvTCifar100Stage3 : convolutional embedding in CvT (Convolutional Vision Transformer) model.
 		// MUSE_PyramidGenConv 			  		: create a multi-scale feature pyramid from a single-scale feature map in MUSE (a model based on Mamba). https://ojs.aaai.org/index.php/AAAI/article/view/32778
 		otherRotOptConvTimeTest(context, 2)
-		// otherRotOptConvTimeTest(context, 3)
-		// otherRotOptConvTimeTest(context, 4)
-		// otherRotOptConvTimeTest(context, 5)
+		otherRotOptConvTimeTest(context, 3)
+		otherRotOptConvTimeTest(context, 4)
+		otherRotOptConvTimeTest(context, 5)
 		// otherRotOptConvTimeTest(context, 6)
 		// otherRotOptConvTimeTest(context, 7)
 		// otherRotOptConvTimeTest(context, 8)
@@ -167,7 +167,7 @@ func otherRotOptConvTimeTest(cc *customContext, depth int) {
 		convIDs = []string{"CvTCifar100Stage2"}
 	case 6:
 		// convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
-		convIDs = []string{"CvTCifar100Stage2"}
+		convIDs = []string{"MUSE_PyramidGenConv"}
 	case 7:
 		// convIDs = []string{ "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
 		convIDs = []string{"MUSE_PyramidGenConv"}
@@ -366,8 +366,8 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 
 	iter := 1
 	minStartCipherLevel := depth
-	maxStartCipherLevel := cc.Params.MaxLevel() //원
-	// maxStartCipherLevel := depth + 2
+	// maxStartCipherLevel := cc.Params.MaxLevel() //원
+	maxStartCipherLevel := depth + 2
 
 	for index := 0; index < len(convIDs); index++ {
 
