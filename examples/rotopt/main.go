@@ -53,9 +53,9 @@ func main() {
 	// Convolution Tests 원
 	if Contains(args, "conv") || args[0] == "ALL" {
 		rotOptConvTimeTest(context, 2)
-		// rotOptConvTimeTest(context, 3)
-		// rotOptConvTimeTest(context, 4)
-		// rotOptConvTimeTest(context, 5)
+		rotOptConvTimeTest(context, 3)
+		rotOptConvTimeTest(context, 4)
+		rotOptConvTimeTest(context, 5)
 		// mulParConvTimeTest(context)
 	}
 

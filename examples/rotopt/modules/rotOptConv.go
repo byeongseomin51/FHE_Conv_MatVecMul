@@ -65,8 +65,8 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 	}
 
 	//get dacToFor values.
-	var dacToFor []int
-	var dacToForTreeDepth []int
+	var dacToFor []int          //opType==1 [1] val
+	var dacToForTreeDepth []int //opType==1 index
 	for depth := opType0TreeDepth; depth > 0; depth-- {
 		opType := convMap[depth][0]
 		if opType == 1 {
@@ -74,10 +74,10 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 			dacToForTreeDepth = append(dacToForTreeDepth, depth)
 		}
 	}
-	for i := len(dacToFor); i < 3; i++ {
+	for i := len(dacToFor); i < 10; i++ {
 		dacToFor = append(dacToFor, 1)
 	}
-	for i := len(dacToForTreeDepth); i < 3; i++ {
+	for i := len(dacToForTreeDepth); i < 10; i++ {
 		dacToForTreeDepth = append(dacToForTreeDepth, 0)
 	}
 
@@ -241,7 +241,6 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	var splitedCiphertext []*rlwe.Ciphertext
 	for i := 0; i < obj.convMap[obj.lastFilterTreeDepth][1]; i++ {
 
-		// Naive implementation to avoid unnecessary copy for using divide and conquer
 		startKernel := beforeLastFilter * i
 		for d1 := 0; d1 < obj.dacToFor[0]; d1++ {
 			for d2 := 0; d2 < obj.dacToFor[1]; d2++ {
@@ -455,7 +454,7 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 	}
 
-	fmt.Println("rot num: ", rot_num) //원
+	// fmt.Println("rot num: ", rot_num) //원
 	return splitedCiphertext[0]
 }
 
