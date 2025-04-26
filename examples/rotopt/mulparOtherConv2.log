@@ -1,7 +1,7 @@
 args :  [otherConv]
 
 Multiplexed Parallel Convolution (for complex AI model) time test started!
-CKKS parameter set as : PN15QP880CI <= 이걸로 돌림
+CKKS parameter set as : PN15QP880CI <= 이걸로 돌림 mulpar도 이건 안돌아감...
 === convID : MUSE_PyramidGenConv, Depth : 2, CipherLevel : 2 ~ 17, iter : 1 === 
 startLevel executionTime(sec)
 2 34.788555598 
@@ -24,3 +24,15 @@ MSE (Mean Squared Error)   : Min = 4.22e-13, Max = 4.31e-13, Avg = 4.26e-13
 Relative Error             : Min = 1.95e-07, Max = 2.86e-07, Avg = 2.29e-07
 Infinity Norm (L-infinity) : Min = 2.65e-06, Max = 3.06e-06, Avg = 2.90e-06
 
+#나중에 측정
+=== convID : CvTCifar100Stage2, Depth : 2, CipherLevel : 2 ~ 6, iter : 1 === 
+startLevel executionTime(sec)
+rot_num 347
+
+=== convID : CvTCifar100Stage3, Depth : 2, CipherLevel : 2 ~ 6, iter : 1 === 
+startLevel executionTime(sec)
+rot_num 780
+
+=== convID : MUSE_PyramidGenConv, Depth : 2, CipherLevel : 2 ~ 17, iter : 1 === 
+startLevel executionTime(sec)
+rot_num 5128

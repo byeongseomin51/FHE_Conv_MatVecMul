@@ -122,10 +122,15 @@ func main() {
 		// Each convolution refers to...
 		// CvTCifar100Stage2, CvTCifar100Stage3 : convolutional embedding in CvT (Convolutional Vision Transformer) model.
 		// MUSE_PyramidGenConv 			  		: create a multi-scale feature pyramid from a single-scale feature map in MUSE (a model based on Mamba). https://ojs.aaai.org/index.php/AAAI/article/view/32778
-		otherRotOptConvTimeTest(context, 2)
+		// otherRotOptConvTimeTest(context, 2)
 		// otherRotOptConvTimeTest(context, 3)
 		// otherRotOptConvTimeTest(context, 4)
-		// otherRotOptConvTimeTest(context, 5)
+		otherRotOptConvTimeTest(context, 5)
+		// otherRotOptConvTimeTest(context, 6)
+		// otherRotOptConvTimeTest(context, 7)
+		// otherRotOptConvTimeTest(context, 8)
+		// otherRotOptConvTimeTest(context, 9)
+		// otherRotOptConvTimeTest(context, 10)
 		// otherMulParConvTimeTest(context)
 	}
 }
@@ -152,11 +157,26 @@ func otherRotOptConvTimeTest(cc *customContext, depth int) {
 		// convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
 		convIDs = []string{"MUSE_PyramidGenConv"}
 	case 3:
-		convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		// convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		convIDs = []string{"MUSE_PyramidGenConv"}
 	case 4:
-		convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		// convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		convIDs = []string{"MUSE_PyramidGenConv"}
 	case 5:
-		convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		// convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		convIDs = []string{"MUSE_PyramidGenConv"}
+	case 6:
+		// convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		convIDs = []string{"MUSE_PyramidGenConv"}
+	case 7:
+		// convIDs = []string{ "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		convIDs = []string{"MUSE_PyramidGenConv"}
+	case 8:
+		convIDs = []string{"MUSE_PyramidGenConv"}
+	case 9:
+		convIDs = []string{"MUSE_PyramidGenConv"}
+	case 10:
+		convIDs = []string{"MUSE_PyramidGenConv"}
 	default:
 		fmt.Printf("Unsupported depth: %d\n", depth)
 		return
@@ -164,8 +184,8 @@ func otherRotOptConvTimeTest(cc *customContext, depth int) {
 
 	iter := 1
 	minStartCipherLevel := depth
-	// maxStartCipherLevel := cc.Params.MaxLevel()
-	maxStartCipherLevel := 6
+	// maxStartCipherLevel := cc.Params.MaxLevel() //원
+	maxStartCipherLevel := depth + 1
 
 	for index := 0; index < len(convIDs); index++ {
 
