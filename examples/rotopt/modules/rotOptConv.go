@@ -99,7 +99,7 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 	}
 }
 
-func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	mainCipher := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 	tempCtLv1 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 
@@ -200,12 +200,12 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 		}
 	}
 
-	fmt.Println("rot num: ", obj.rot_num) //원
+	// fmt.Println("rot num: ", obj.rot_num) //원
 	return splitedCiphertext[0]
 }
 
 // rotInput 복제되는지 확인
-func (obj RotOptConv) dacForAdditionalDepth(ctOut *rlwe.Ciphertext, startKernel int, needsToBeCombine int, curTreeDepth int, rotInput []*rlwe.Ciphertext) {
+func (obj *RotOptConv) dacForAdditionalDepth(ctOut *rlwe.Ciphertext, startKernel int, needsToBeCombine int, curTreeDepth int, rotInput []*rlwe.Ciphertext) {
 	// if curTreeDepth ==0, return SISO conv
 	if curTreeDepth == 0 {
 		if needsToBeCombine != 1 {
@@ -291,7 +291,7 @@ func (obj RotOptConv) dacForAdditionalDepth(ctOut *rlwe.Ciphertext, startKernel 
 	}
 }
 
-func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	if obj.depth == 2 {
 		return obj.Foward2depth(ctIn) //2 depth consuming rotation optimized convolution.
 	}
@@ -311,12 +311,12 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	}
 
 	// conv
-	kernelNum := len(obj.ConvFeature.KernelBP)                              //all size
-	beforeLastFilter := kernelNum / obj.convMap[obj.lastFilterTreeDepth][1] //16/4=4
-	var splitedCiphertext []*rlwe.Ciphertext                                //나중에 없앨계획?
+	kernelNum := len(obj.ConvFeature.KernelBP)
+	beforeLastFilter := kernelNum / obj.convMap[obj.lastFilterTreeDepth][1]
+	var splitedCiphertext []*rlwe.Ciphertext
 	for i := 0; i < obj.convMap[obj.lastFilterTreeDepth][1]; i++ {
 
-		startKernel := beforeLastFilter * i //0 4 8 12
+		startKernel := beforeLastFilter * i
 		obj.dacForAdditionalDepth(mainCipher, startKernel, beforeLastFilter, obj.opType1LastTreeDepth, rotInput)
 
 		//opType 0
