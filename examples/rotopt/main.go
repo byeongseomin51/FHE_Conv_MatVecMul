@@ -37,8 +37,8 @@ func main() {
 	}
 
 	//CKKS settings 원
-	context := setCKKSEnv() //CKKS environment
-	// context := setCKKSEnvUseParamSet("PN15QP880CI")
+	// context := setCKKSEnv() //CKKS environment
+	context := setCKKSEnvUseParamSet("PN15QP880CI")
 
 	//basicOperationTimeTest
 	if Contains(args, "basic") || args[0] == "ALL" {
@@ -52,11 +52,11 @@ func main() {
 
 	// Convolution Tests 원
 	if Contains(args, "conv") || args[0] == "ALL" {
-		// rotOptConvTimeTest(context, 2)
-		// rotOptConvTimeTest(context, 3)
-		// rotOptConvTimeTest(context, 4)
-		// rotOptConvTimeTest(context, 5)
-		mulParConvTimeTest(context)
+		rotOptConvTimeTest(context, 2)
+		rotOptConvTimeTest(context, 3)
+		rotOptConvTimeTest(context, 4)
+		rotOptConvTimeTest(context, 5)
+		// mulParConvTimeTest(context)
 	}
 
 	// Print Blue Print. Corresponds to Appendix A.
@@ -101,7 +101,6 @@ func main() {
 		CKKSEnvSetList := []string{"PN16QP1761", "PN15QP880CI", "PN16QP1654pq", "PN15QP827CIpq"}
 		for _, SetName := range CKKSEnvSetList {
 			contextCustom := setCKKSEnvUseParamSet(SetName)
-			fmt.Printf("CKKS parameter set as : %s\n", SetName)
 
 			rotOptConvTimeTest(contextCustom, 2)
 			rotOptConvTimeTest(contextCustom, 3)
@@ -123,7 +122,11 @@ func main() {
 		// Each convolution refers to...
 		// CvTCifar100Stage2, CvTCifar100Stage3 : convolutional embedding in CvT (Convolutional Vision Transformer) model.
 		// MUSE_PyramidGenConv 			  		: create a multi-scale feature pyramid from a single-scale feature map in MUSE (a model based on Mamba). https://ojs.aaai.org/index.php/AAAI/article/view/32778
-		otherMulParConvTimeTest(context)
+		otherRotOptConvTimeTest(context, 2)
+		// otherRotOptConvTimeTest(context, 3)
+		// otherRotOptConvTimeTest(context, 4)
+		// otherRotOptConvTimeTest(context, 5)
+		// otherMulParConvTimeTest(context)
 	}
 }
 
@@ -143,21 +146,17 @@ func otherRotOptConvTimeTest(cc *customContext, depth int) {
 	fmt.Printf("\nRotation Optimized Convolution (for %d-depth consumed, complex AI model) time test started!\n", depth)
 
 	var convIDs []string
-	var maxDepth []int
 
 	switch depth {
 	case 2:
-		convIDs = []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-		maxDepth = []int{2, 2, 2, 2, 2, 2}
+		// convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+		convIDs = []string{"MUSE_PyramidGenConv"}
 	case 3:
-		convIDs = []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-		maxDepth = []int{3, 3, 3, 3, 3}
+		convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
 	case 4:
-		convIDs = []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-		maxDepth = []int{4, 4, 4, 4, 4}
+		convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
 	case 5:
-		convIDs = []string{"CONV3s2", "CONV4s2"}
-		maxDepth = []int{5, 5}
+		convIDs = []string{"CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
 	default:
 		fmt.Printf("Unsupported depth: %d\n", depth)
 		return
@@ -165,73 +164,78 @@ func otherRotOptConvTimeTest(cc *customContext, depth int) {
 
 	iter := 1
 	minStartCipherLevel := depth
-	maxStartCipherLevel := cc.Params.MaxLevel()
+	// maxStartCipherLevel := cc.Params.MaxLevel()
+	maxStartCipherLevel := 6
 
 	for index := 0; index < len(convIDs); index++ {
-		for d := depth; d <= maxDepth[index]; d++ {
-			convID := convIDs[index]
 
-			//register index of rotation
-			rots := modules.RotOptConvRegister(convID, d)
+		convID := convIDs[index]
+		if convID == "MUSE_PyramidGenConv" {
+			cc = setCKKSEnvUseParamSet("PN15QP880CI")
 
-			//rotation key register
-			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
-
-			//make rotOptConv instance
-			conv := modules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, convID, d)
-
-			// Make input and kernel
-			cf := conv.ConvFeature
-			plainInput := makeRandomInput(cf.InputDataChannel, cf.InputDataHeight, cf.InputDataWidth)
-			plainKernel := makeRandomKernel(cf.KernelNumber, cf.InputDataChannel, cf.KernelSize, cf.KernelSize)
-
-			//Plaintext Convolution
-			plainOutput := PlainConvolution2D(plainInput, plainKernel, cf.Stride, 1)
-
-			// Encrypt Input, Encode Kernel
-			mulParPackedInput := MulParPacking(plainInput, cf, cc)
-			conv.PreCompKernels = EncodeKernel(plainKernel, cf, cc)
-
-			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, d, Max(minStartCipherLevel, d), maxStartCipherLevel, iter)
-			fmt.Printf("startLevel executionTime(sec)\n")
-			// MSE, RE, inf Norm
-			var MSEList, REList, infNormList []float64
-			for startCipherLevel := Max(minStartCipherLevel, d); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
-				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
-				cc.Encoder.Encode(mulParPackedInput, plain)
-				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
-
-				var totalForwardTime time.Duration
-				//Conv Foward
-				for i := 0; i < iter; i++ {
-					//Convolution start
-					start := time.Now()
-					encryptedOutput := conv.Foward(inputCt)
-					end := time.Now()
-					totalForwardTime += end.Sub(start)
-
-					// MSE, RE, inf Norm
-					FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
-					scores := MSE_RE_infNorm(plainOutput, FHEOutput)
-					MSEList = append(MSEList, scores[0])
-					REList = append(REList, scores[1])
-					infNormList = append(infNormList, scores[2])
-				}
-
-				//Print Elapsed Time
-				avgForwardTime := float64(totalForwardTime.Nanoseconds()) / float64(iter) / 1e9
-				fmt.Printf("%v %v \n", startCipherLevel, avgForwardTime)
-			}
-			// Average Acc, Recall, F1 score
-			MSEMin, MSEMax, MSEAvg := minMaxAvg(MSEList)
-			REMin, REMax, REAvg := minMaxAvg(REList)
-			infNormMin, infNormMax, infNormAvg := minMaxAvg(infNormList)
-
-			fmt.Printf("MSE (Mean Squared Error)   : Min = %.2e, Max = %.2e, Avg = %.2e\n", MSEMin, MSEMax, MSEAvg)
-			fmt.Printf("Relative Error             : Min = %.2e, Max = %.2e, Avg = %.2e\n", REMin, REMax, REAvg)
-			fmt.Printf("Infinity Norm (L-infinity) : Min = %.2e, Max = %.2e, Avg = %.2e\n", infNormMin, infNormMax, infNormAvg)
-			fmt.Println()
+			// maxStartCipherLevel = cc.Params.MaxLevel() //원
 		}
+
+		//register index of rotation
+		rots := modules.RotOptConvRegister(convID, depth)
+
+		//rotation key register
+		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+
+		//make rotOptConv instance
+		conv := modules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, convID, depth)
+
+		// Make input and kernel
+		cf := conv.ConvFeature
+		plainInput := makeRandomInput(cf.InputDataChannel, cf.InputDataHeight, cf.InputDataWidth)
+		plainKernel := makeRandomKernel(cf.KernelNumber, cf.InputDataChannel, cf.KernelSize, cf.KernelSize)
+
+		//Plaintext Convolution
+		plainOutput := PlainConvolution2D(plainInput, plainKernel, cf.Stride, 1)
+
+		// Encrypt Input, Encode Kernel
+		mulParPackedInput := MulParPacking(plainInput, cf, cc)
+		conv.PreCompKernels = EncodeKernel(plainKernel, cf, cc)
+
+		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
+		fmt.Printf("startLevel executionTime(sec)\n")
+		// MSE, RE, inf Norm
+		var MSEList, REList, infNormList []float64
+		for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+			plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+			cc.Encoder.Encode(mulParPackedInput, plain)
+			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+
+			var totalForwardTime time.Duration
+			//Conv Foward
+			for i := 0; i < iter; i++ {
+				//Convolution start
+				start := time.Now()
+				encryptedOutput := conv.Foward(inputCt)
+				end := time.Now()
+				totalForwardTime += end.Sub(start)
+
+				// MSE, RE, inf Norm
+				FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
+				scores := MSE_RE_infNorm(plainOutput, FHEOutput)
+				MSEList = append(MSEList, scores[0])
+				REList = append(REList, scores[1])
+				infNormList = append(infNormList, scores[2])
+			}
+
+			//Print Elapsed Time
+			avgForwardTime := float64(totalForwardTime.Nanoseconds()) / float64(iter) / 1e9
+			fmt.Printf("%v %v \n", startCipherLevel, avgForwardTime)
+		}
+		// Average Acc, Recall, F1 score
+		MSEMin, MSEMax, MSEAvg := minMaxAvg(MSEList)
+		REMin, REMax, REAvg := minMaxAvg(REList)
+		infNormMin, infNormMax, infNormAvg := minMaxAvg(infNormList)
+
+		fmt.Printf("MSE (Mean Squared Error)   : Min = %.2e, Max = %.2e, Avg = %.2e\n", MSEMin, MSEMax, MSEAvg)
+		fmt.Printf("Relative Error             : Min = %.2e, Max = %.2e, Avg = %.2e\n", REMin, REMax, REAvg)
+		fmt.Printf("Infinity Norm (L-infinity) : Min = %.2e, Max = %.2e, Avg = %.2e\n", infNormMin, infNormMax, infNormAvg)
+		fmt.Println()
 	}
 }
 func otherMulParConvTimeTest(cc *customContext) {
@@ -325,21 +329,16 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 	fmt.Printf("\nRotation Optimized Convolution (for %d-depth consumed) time test started!\n", depth)
 
 	var convIDs []string
-	var maxDepth []int
 
 	switch depth {
 	case 2:
 		convIDs = []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-		maxDepth = []int{2, 2, 2, 2, 2, 2}
 	case 3:
 		convIDs = []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-		maxDepth = []int{3, 3, 3, 3, 3}
 	case 4:
 		convIDs = []string{"CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-		maxDepth = []int{4, 4, 4, 4, 4}
 	case 5:
 		convIDs = []string{"CONV3s2", "CONV4s2"}
-		maxDepth = []int{5, 5}
 	default:
 		fmt.Printf("Unsupported depth: %d\n", depth)
 		return
@@ -347,73 +346,73 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 
 	iter := 1
 	minStartCipherLevel := depth
-	maxStartCipherLevel := cc.Params.MaxLevel()
+	// maxStartCipherLevel := cc.Params.MaxLevel()
+	maxStartCipherLevel := 5
 
 	for index := 0; index < len(convIDs); index++ {
-		for d := depth; d <= maxDepth[index]; d++ {
-			convID := convIDs[index]
 
-			//register index of rotation
-			rots := modules.RotOptConvRegister(convID, d)
+		convID := convIDs[index]
 
-			//rotation key register
-			newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
+		//register index of rotation
+		rots := modules.RotOptConvRegister(convID, depth)
 
-			//make rotOptConv instance
-			conv := modules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, convID, d)
+		//rotation key register
+		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
 
-			// Make input and kernel
-			cf := conv.ConvFeature
-			plainInput := makeRandomInput(cf.InputDataChannel, cf.InputDataHeight, cf.InputDataWidth)
-			plainKernel := makeRandomKernel(cf.KernelNumber, cf.InputDataChannel, cf.KernelSize, cf.KernelSize)
+		//make rotOptConv instance
+		conv := modules.NewrotOptConv(newEvaluator, cc.Encoder, cc.Params, convID, depth)
 
-			//Plaintext Convolution
-			plainOutput := PlainConvolution2D(plainInput, plainKernel, cf.Stride, 1)
+		// Make input and kernel
+		cf := conv.ConvFeature
+		plainInput := makeRandomInput(cf.InputDataChannel, cf.InputDataHeight, cf.InputDataWidth)
+		plainKernel := makeRandomKernel(cf.KernelNumber, cf.InputDataChannel, cf.KernelSize, cf.KernelSize)
 
-			// Encrypt Input, Encode Kernel
-			mulParPackedInput := MulParPacking(plainInput, cf, cc)
-			conv.PreCompKernels = EncodeKernel(plainKernel, cf, cc)
+		//Plaintext Convolution
+		plainOutput := PlainConvolution2D(plainInput, plainKernel, cf.Stride, 1)
 
-			fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, d, Max(minStartCipherLevel, d), maxStartCipherLevel, iter)
-			fmt.Printf("startLevel executionTime(sec)\n")
-			// MSE, RE, inf Norm
-			var MSEList, REList, infNormList []float64
-			for startCipherLevel := Max(minStartCipherLevel, d); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
-				plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
-				cc.Encoder.Encode(mulParPackedInput, plain)
-				inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
+		// Encrypt Input, Encode Kernel
+		mulParPackedInput := MulParPacking(plainInput, cf, cc)
+		conv.PreCompKernels = EncodeKernel(plainKernel, cf, cc)
 
-				var totalForwardTime time.Duration
-				//Conv Foward
-				for i := 0; i < iter; i++ {
-					//Convolution start
-					start := time.Now()
-					encryptedOutput := conv.Foward(inputCt)
-					end := time.Now()
-					totalForwardTime += end.Sub(start)
+		fmt.Printf("=== convID : %s, Depth : %v, CipherLevel : %v ~ %v, iter : %v === \n", convID, depth, Max(minStartCipherLevel, depth), maxStartCipherLevel, iter)
+		fmt.Printf("startLevel executionTime(sec)\n")
+		// MSE, RE, inf Norm
+		var MSEList, REList, infNormList []float64
+		for startCipherLevel := Max(minStartCipherLevel, depth); startCipherLevel <= maxStartCipherLevel; startCipherLevel++ {
+			plain := ckks.NewPlaintext(cc.Params, startCipherLevel)
+			cc.Encoder.Encode(mulParPackedInput, plain)
+			inputCt, _ := cc.EncryptorSk.EncryptNew(plain)
 
-					// MSE, RE, inf Norm
-					FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
-					scores := MSE_RE_infNorm(plainOutput, FHEOutput)
-					MSEList = append(MSEList, scores[0])
-					REList = append(REList, scores[1])
-					infNormList = append(infNormList, scores[2])
-				}
+			var totalForwardTime time.Duration
+			//Conv Foward
+			for i := 0; i < iter; i++ {
+				//Convolution start
+				start := time.Now()
+				encryptedOutput := conv.Foward(inputCt)
+				end := time.Now()
+				totalForwardTime += end.Sub(start)
 
-				//Print Elapsed Time
-				avgForwardTime := float64(totalForwardTime.Nanoseconds()) / float64(iter) / 1e9
-				fmt.Printf("%v %v \n", startCipherLevel, avgForwardTime)
+				// MSE, RE, inf Norm
+				FHEOutput := UnMulParPacking(encryptedOutput, cf, cc)
+				scores := MSE_RE_infNorm(plainOutput, FHEOutput)
+				MSEList = append(MSEList, scores[0])
+				REList = append(REList, scores[1])
+				infNormList = append(infNormList, scores[2])
 			}
-			// Average Acc, Recall, F1 score
-			MSEMin, MSEMax, MSEAvg := minMaxAvg(MSEList)
-			REMin, REMax, REAvg := minMaxAvg(REList)
-			infNormMin, infNormMax, infNormAvg := minMaxAvg(infNormList)
 
-			fmt.Printf("MSE (Mean Squared Error)   : Min = %.2e, Max = %.2e, Avg = %.2e\n", MSEMin, MSEMax, MSEAvg)
-			fmt.Printf("Relative Error             : Min = %.2e, Max = %.2e, Avg = %.2e\n", REMin, REMax, REAvg)
-			fmt.Printf("Infinity Norm (L-infinity) : Min = %.2e, Max = %.2e, Avg = %.2e\n", infNormMin, infNormMax, infNormAvg)
-			fmt.Println()
+			//Print Elapsed Time
+			avgForwardTime := float64(totalForwardTime.Nanoseconds()) / float64(iter) / 1e9
+			fmt.Printf("%v %v \n", startCipherLevel, avgForwardTime)
 		}
+		// Average Acc, Recall, F1 score
+		MSEMin, MSEMax, MSEAvg := minMaxAvg(MSEList)
+		REMin, REMax, REAvg := minMaxAvg(REList)
+		infNormMin, infNormMax, infNormAvg := minMaxAvg(infNormList)
+
+		fmt.Printf("MSE (Mean Squared Error)   : Min = %.2e, Max = %.2e, Avg = %.2e\n", MSEMin, MSEMax, MSEAvg)
+		fmt.Printf("Relative Error             : Min = %.2e, Max = %.2e, Avg = %.2e\n", REMin, REMax, REAvg)
+		fmt.Printf("Infinity Norm (L-infinity) : Min = %.2e, Max = %.2e, Avg = %.2e\n", infNormMin, infNormMax, infNormAvg)
+		fmt.Println()
 	}
 }
 func mulParConvTimeTest(cc *customContext) {
@@ -780,6 +779,8 @@ func setCKKSEnvUseParamSet(paramSet string) *customContext {
 		fmt.Printf("CKKS setting set as default")
 		return setCKKSEnv()
 	}
+
+	fmt.Printf("CKKS parameter set as : %s\n", paramSet)
 
 	return setCKKSContext(context)
 }
