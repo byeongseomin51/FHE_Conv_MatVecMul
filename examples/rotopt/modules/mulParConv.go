@@ -1,6 +1,8 @@
 package modules
 
 import (
+	"fmt"
+
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
@@ -183,7 +185,7 @@ func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	// ctOut, err = obj.Evaluator.AddNew(ctOut, obj.preCompBNadd)
 	ErrorPrint(err)
 
-	// fmt.Printf("rot_num %d\n", rot_num)
+	fmt.Printf("rot_num %d\n", rot_num)
 	return ctOut
 }
 

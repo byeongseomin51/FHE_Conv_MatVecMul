@@ -200,12 +200,11 @@ func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 		}
 	}
 
-	// fmt.Println("rot num: ", obj.rot_num) //원
+	fmt.Println("rot num: ", obj.rot_num) //원
 	return splitedCiphertext[0]
 }
 
-// rotInput 복제되는지 확인
-func (obj *RotOptConv) dacForAdditionalDepth(ctOut *rlwe.Ciphertext, startKernel int, needsToBeCombine int, curTreeDepth int, rotInput []*rlwe.Ciphertext) {
+func (obj *RotOptConv) dac_for_opType1(ctOut *rlwe.Ciphertext, startKernel int, needsToBeCombine int, curTreeDepth int, rotInput []*rlwe.Ciphertext) {
 	// if curTreeDepth ==0, return SISO conv
 	if curTreeDepth == 0 {
 		if needsToBeCombine != 1 {
@@ -232,7 +231,7 @@ func (obj *RotOptConv) dacForAdditionalDepth(ctOut *rlwe.Ciphertext, startKernel
 
 		//start divide and conquer
 		curCtNum := 0
-		obj.dacForAdditionalDepth(ctOutTemp, startKernel, needsToBeCombine/curCombineNum, curTreeDepth-1, rotInput)
+		obj.dac_for_opType1(ctOutTemp, startKernel, needsToBeCombine/curCombineNum, curTreeDepth-1, rotInput)
 		tempCipher := ckks.NewCiphertext(obj.params, 1, ctOutTemp.Level())
 		tempCipher2 := ckks.NewCiphertext(obj.params, 1, ctOutTemp.Level())
 		ctOutTemp2 := ckks.NewCiphertext(obj.params, 1, ctOutTemp.Level())
@@ -258,7 +257,7 @@ func (obj *RotOptConv) dacForAdditionalDepth(ctOut *rlwe.Ciphertext, startKernel
 		ErrorPrint(err)
 
 		for curCtNum = 1; curCtNum < curCombineNum; curCtNum++ {
-			obj.dacForAdditionalDepth(ctOutTemp, startKernel+curCtNum*(needsToBeCombine/curCombineNum), needsToBeCombine/curCombineNum, curTreeDepth-1, rotInput) //startKernel 수정
+			obj.dac_for_opType1(ctOutTemp, startKernel+curCtNum*(needsToBeCombine/curCombineNum), needsToBeCombine/curCombineNum, curTreeDepth-1, rotInput) //startKernel 수정
 			// rotate and add
 			for index := 2; index < curTreeLen; index++ {
 				if ((curCtNum >> (index - 2)) & 1) == 0 {
@@ -317,7 +316,7 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	for i := 0; i < obj.convMap[obj.lastFilterTreeDepth][1]; i++ {
 
 		startKernel := beforeLastFilter * i
-		obj.dacForAdditionalDepth(mainCipher, startKernel, beforeLastFilter, obj.opType1LastTreeDepth, rotInput)
+		obj.dac_for_opType1(mainCipher, startKernel, beforeLastFilter, obj.opType1LastTreeDepth, rotInput)
 
 		//opType 0
 		for treeDepth := obj.opType0TreeDepth; treeDepth < obj.lastFilterTreeDepth; treeDepth++ {
@@ -391,7 +390,7 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 	}
 
-	// fmt.Println("rot num: ", obj.rot_num) //원
+	fmt.Println("rot num: ", obj.rot_num) //원
 	return splitedCiphertext[0]
 }
 
