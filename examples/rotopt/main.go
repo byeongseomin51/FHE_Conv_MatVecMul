@@ -56,7 +56,7 @@ func main() {
 		rotOptConvTimeTest(context, 3)
 		rotOptConvTimeTest(context, 4)
 		rotOptConvTimeTest(context, 5)
-		// mulParConvTimeTest(context)
+		mulParConvTimeTest(context)
 	}
 
 	// Print Blue Print. Corresponds to Appendix A.

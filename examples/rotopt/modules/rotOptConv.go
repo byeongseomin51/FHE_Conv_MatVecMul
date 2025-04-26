@@ -13,16 +13,15 @@ import (
 type RotOptConv struct {
 	encoder *ckks.Encoder
 
-	Evaluator           *ckks.Evaluator
-	params              ckks.Parameters
-	PreCompKernels      [][]*rlwe.Plaintext
-	preCompFilters      [][]*rlwe.Plaintext
-	lastFilter          [][]*rlwe.Plaintext
-	lastFilterTreeDepth int
-	opType0TreeDepth    int
-	dacToFor            []int
-	dacToForTreeDepth   []int
-	ConvFeature         *ConvFeature
+	Evaluator            *ckks.Evaluator
+	params               ckks.Parameters
+	PreCompKernels       [][]*rlwe.Plaintext
+	preCompFilters       [][]*rlwe.Plaintext
+	lastFilter           [][]*rlwe.Plaintext
+	lastFilterTreeDepth  int
+	opType0TreeDepth     int
+	opType1LastTreeDepth int
+	ConvFeature          *ConvFeature
 
 	convMap            [][]int
 	q                  int //length of kernel_map
@@ -30,6 +29,9 @@ type RotOptConv struct {
 
 	splitNum int
 	depth    int
+
+	//for debug
+	rot_num int
 }
 
 func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, convID string, depth int) *RotOptConv {
@@ -64,41 +66,36 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 		}
 	}
 
-	//get dacToFor values.
-	var dacToFor []int          //opType==1 [1] val
-	var dacToForTreeDepth []int //opType==1 index
+	//get opType1CombineNum values.
+	var opType1LastTreeDepth = 0
 	for depth := opType0TreeDepth; depth > 0; depth-- {
 		opType := convMap[depth][0]
 		if opType == 1 {
-			dacToFor = append(dacToFor, convMap[depth][1])
-			dacToForTreeDepth = append(dacToForTreeDepth, depth)
+			opType1LastTreeDepth = depth
+			break
 		}
-	}
-	for i := len(dacToFor); i < 10; i++ {
-		dacToFor = append(dacToFor, 1)
-	}
-	for i := len(dacToForTreeDepth); i < 10; i++ {
-		dacToForTreeDepth = append(dacToForTreeDepth, 0)
 	}
 
 	return &RotOptConv{
 		encoder: ec,
 
-		Evaluator:           ev,
-		params:              params,
-		preCompFilters:      preCompFilters,
-		lastFilter:          lastFilter,
-		lastFilterTreeDepth: lastFilterLocate,
-		opType0TreeDepth:    opType0TreeDepth,
-		dacToFor:            dacToFor,
-		dacToForTreeDepth:   dacToForTreeDepth,
-		ConvFeature:         cf,
-		splitNum:            splitNum,
+		Evaluator:            ev,
+		params:               params,
+		preCompFilters:       preCompFilters,
+		lastFilter:           lastFilter,
+		lastFilterTreeDepth:  lastFilterLocate,
+		opType0TreeDepth:     opType0TreeDepth,
+		opType1LastTreeDepth: opType1LastTreeDepth,
+		ConvFeature:          cf,
+		splitNum:             splitNum,
 
 		convMap:            convMap,
 		q:                  q,
 		rotIndex3by3Kernel: rotIndex3by3Kernel,
 		depth:              depth,
+
+		//debug
+		rot_num: -1,
 	}
 }
 
@@ -106,14 +103,14 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 	mainCipher := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 	tempCtLv1 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 
-	rot_num := -1 //원 0일떄도 카운팅이되서
+	obj.rot_num = -1 //원 0일떄도 카운팅이되서
 
 	var err error
 	// Rotate Data
 	var rotInput []*rlwe.Ciphertext
 	for w := 0; w < 9; w++ {
 		c, err := obj.Evaluator.RotateNew(ctIn, obj.rotIndex3by3Kernel[w])
-		rot_num++
+		obj.rot_num++
 		ErrorPrint(err)
 		rotInput = append(rotInput, c)
 	}
@@ -135,7 +132,7 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 		//opType 0
 		for treeDepth := obj.opType0TreeDepth; treeDepth < obj.lastFilterTreeDepth; treeDepth++ {
 			err = obj.Evaluator.Rotate(mainCipher, obj.convMap[treeDepth][1], tempCtLv1)
-			rot_num++
+			obj.rot_num++
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 			ErrorPrint(err)
@@ -146,13 +143,13 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 		for j := 1; j < obj.convMap[obj.lastFilterTreeDepth][1]; j *= 2 {
 			if ((i >> shift) & 1) == 0 {
 				err = obj.Evaluator.Rotate(mainCipher, obj.convMap[obj.lastFilterTreeDepth][shift+2], tempCtLv1)
-				rot_num++
+				obj.rot_num++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 				ErrorPrint(err)
 			} else {
 				err = obj.Evaluator.Rotate(mainCipher, -obj.convMap[obj.lastFilterTreeDepth][shift+2], tempCtLv1)
-				rot_num++
+				obj.rot_num++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 				ErrorPrint(err)
@@ -184,7 +181,7 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 
 	for i := 1; i < obj.convMap[obj.lastFilterTreeDepth+1][1]; i++ {
 		err = obj.Evaluator.Rotate(splitedCiphertext[i], obj.convMap[obj.lastFilterTreeDepth+1][i+1], splitedCiphertext[i])
-		rot_num++
+		obj.rot_num++
 		ErrorPrint(err)
 		err = obj.Evaluator.Add(splitedCiphertext[0], splitedCiphertext[i], splitedCiphertext[0])
 		ErrorPrint(err)
@@ -194,7 +191,7 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 	for treeDepth := obj.lastFilterTreeDepth + 2; treeDepth < len(obj.convMap); treeDepth++ {
 		if obj.convMap[treeDepth][0] == 0 {
 			err = obj.Evaluator.Rotate(splitedCiphertext[0], obj.convMap[treeDepth][1], mainCipher)
-			rot_num++
+			obj.rot_num++
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(splitedCiphertext[0], mainCipher, splitedCiphertext[0])
 			ErrorPrint(err)
@@ -203,189 +200,129 @@ func (obj RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertex
 		}
 	}
 
-	fmt.Println("rot num: ", rot_num) //원
+	fmt.Println("rot num: ", obj.rot_num) //원
 	return splitedCiphertext[0]
 }
+
+// rotInput 복제되는지 확인
+func (obj RotOptConv) dacForAdditionalDepth(ctOut *rlwe.Ciphertext, startKernel int, needsToBeCombine int, curTreeDepth int, rotInput []*rlwe.Ciphertext) {
+	// if curTreeDepth ==0, return SISO conv
+	if curTreeDepth == 0 {
+		if needsToBeCombine != 1 {
+			fmt.Println("Warning : curTreeDepth is 0, but needsToBeCombine is not 1")
+		}
+		kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.PreCompKernels[startKernel][0])
+		ErrorPrint(err)
+		for w := 1; w < 9; w++ {
+			tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.PreCompKernels[startKernel][w])
+			ErrorPrint(err)
+
+			err = obj.Evaluator.Add(kernelResult, tempCt, kernelResult)
+			ErrorPrint(err)
+		}
+
+		err = obj.Evaluator.Rescale(kernelResult, ctOut)
+		ErrorPrint(err)
+	} else if curTreeDepth > 0 { // [startKernel, startKernel+needsToBeCombine) 까지 합쳐져야함
+		ctOutTemp := ckks.NewCiphertext(obj.params, 1, ctOut.Level())
+
+		// make constant
+		curCombineNum := obj.convMap[curTreeDepth][1]
+		curTreeLen := len(obj.convMap[curTreeDepth])
+
+		//start divide and conquer
+		curCtNum := 0
+		obj.dacForAdditionalDepth(ctOutTemp, startKernel, needsToBeCombine/curCombineNum, curTreeDepth-1, rotInput)
+		tempCipher := ckks.NewCiphertext(obj.params, 1, ctOutTemp.Level())
+		tempCipher2 := ckks.NewCiphertext(obj.params, 1, ctOutTemp.Level())
+		ctOutTemp2 := ckks.NewCiphertext(obj.params, 1, ctOutTemp.Level())
+
+		// rotate and add
+		for index := 2; index < curTreeLen; index++ {
+			if ((curCtNum >> (index - 2)) & 1) == 0 {
+				err := obj.Evaluator.Rotate(ctOutTemp, obj.convMap[curTreeDepth][index], tempCipher)
+				obj.rot_num++
+				ErrorPrint(err)
+				err = obj.Evaluator.Add(ctOutTemp, tempCipher, ctOutTemp)
+				ErrorPrint(err)
+			} else {
+				err := obj.Evaluator.Rotate(ctOutTemp, -obj.convMap[curTreeDepth][index], tempCipher)
+				obj.rot_num++
+				ErrorPrint(err)
+				err = obj.Evaluator.Add(ctOutTemp, tempCipher, ctOutTemp)
+				ErrorPrint(err)
+			}
+		}
+		// filter out
+		err := obj.Evaluator.Mul(ctOutTemp, obj.preCompFilters[curTreeDepth][curCtNum], ctOutTemp2)
+		ErrorPrint(err)
+
+		for curCtNum = 1; curCtNum < curCombineNum; curCtNum++ {
+			obj.dacForAdditionalDepth(ctOutTemp, startKernel+curCtNum*(needsToBeCombine/curCombineNum), needsToBeCombine/curCombineNum, curTreeDepth-1, rotInput) //startKernel 수정
+			// rotate and add
+			for index := 2; index < curTreeLen; index++ {
+				if ((curCtNum >> (index - 2)) & 1) == 0 {
+					err := obj.Evaluator.Rotate(ctOutTemp, obj.convMap[curTreeDepth][index], tempCipher)
+					obj.rot_num++
+					ErrorPrint(err)
+					err = obj.Evaluator.Add(ctOutTemp, tempCipher, ctOutTemp)
+					ErrorPrint(err)
+				} else {
+					err := obj.Evaluator.Rotate(ctOutTemp, -obj.convMap[curTreeDepth][index], tempCipher)
+					obj.rot_num++
+					ErrorPrint(err)
+					err = obj.Evaluator.Add(ctOutTemp, tempCipher, ctOutTemp)
+					ErrorPrint(err)
+				}
+			}
+			// filter out
+			err := obj.Evaluator.Mul(ctOutTemp, obj.preCompFilters[curTreeDepth][curCtNum], tempCipher2)
+			ErrorPrint(err)
+			// add to result
+			err = obj.Evaluator.Add(ctOutTemp2, tempCipher2, ctOutTemp2)
+			ErrorPrint(err)
+		}
+		// rescale
+		err = obj.Evaluator.Rescale(ctOutTemp2, ctOut)
+		ErrorPrint(err)
+
+	} else {
+		fmt.Printf("curTreeDepth cannot be %d", curTreeDepth)
+	}
+}
+
 func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	if obj.depth == 2 {
 		return obj.Foward2depth(ctIn) //2 depth consuming rotation optimized convolution.
 	}
-	//원
-	rot_num := -1
 
 	mainCipher := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
-	mainCipherTemp := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
+	// tempCipher := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 	tempCtLv1 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
-	tempD1 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
-	tempD2 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
-	tempD3 := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
-
-	d2Result := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
-	d2ResultTemp := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
-	d3Result := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
-	d3ResultTemp := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 
 	var err error
 	// Rotate Data
 	var rotInput []*rlwe.Ciphertext
 	for w := 0; w < 9; w++ {
 		c, err := obj.Evaluator.RotateNew(ctIn, obj.rotIndex3by3Kernel[w])
-		rot_num++
+		obj.rot_num++
 		ErrorPrint(err)
 		rotInput = append(rotInput, c)
 	}
 
 	// conv
-	kernelNum := len(obj.ConvFeature.KernelBP) //all size
-	beforeLastFilter := kernelNum / obj.convMap[obj.lastFilterTreeDepth][1]
-	var splitedCiphertext []*rlwe.Ciphertext
+	kernelNum := len(obj.ConvFeature.KernelBP)                              //all size
+	beforeLastFilter := kernelNum / obj.convMap[obj.lastFilterTreeDepth][1] //16/4=4
+	var splitedCiphertext []*rlwe.Ciphertext                                //나중에 없앨계획?
 	for i := 0; i < obj.convMap[obj.lastFilterTreeDepth][1]; i++ {
 
-		startKernel := beforeLastFilter * i
-		for d1 := 0; d1 < obj.dacToFor[0]; d1++ {
-			for d2 := 0; d2 < obj.dacToFor[1]; d2++ {
-				for d3 := 0; d3 < obj.dacToFor[2]; d3++ {
-					//SISO convolution
-					curKernel := startKernel + d1*obj.dacToFor[1]*obj.dacToFor[2] + d2*obj.dacToFor[2] + d3
-
-					kernelResult, err := obj.Evaluator.MulNew(rotInput[0], obj.PreCompKernels[curKernel][0])
-					ErrorPrint(err)
-
-					for w := 1; w < 9; w++ {
-						tempCt, err := obj.Evaluator.MulNew(rotInput[w], obj.PreCompKernels[curKernel][w])
-						ErrorPrint(err)
-
-						err = obj.Evaluator.Add(kernelResult, tempCt, kernelResult)
-						ErrorPrint(err)
-					}
-
-					err = obj.Evaluator.Rescale(kernelResult, kernelResult)
-					ErrorPrint(err)
-
-					//Rot and combine
-					dBack := 2
-					if obj.dacToFor[dBack] != 1 {
-						//rotate and add
-						shift := 0
-						for j := 1; j < obj.convMap[obj.dacToForTreeDepth[dBack]][1]; j *= 2 {
-							if ((d3 >> shift) & 1) == 0 {
-								err = obj.Evaluator.Rotate(kernelResult, obj.convMap[obj.dacToForTreeDepth[dBack]][shift+2], tempD3)
-								rot_num++
-								ErrorPrint(err)
-								err = obj.Evaluator.Add(kernelResult, tempD3, kernelResult)
-								ErrorPrint(err)
-							} else {
-								err = obj.Evaluator.Rotate(kernelResult, -obj.convMap[obj.dacToForTreeDepth[dBack]][shift+2], tempD3)
-								rot_num++
-								ErrorPrint(err)
-								err = obj.Evaluator.Add(kernelResult, tempD3, kernelResult)
-								ErrorPrint(err)
-							}
-							shift++
-						}
-						//filter and combine
-						if d3 == 0 {
-							err := obj.Evaluator.Mul(kernelResult, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d3], d3ResultTemp)
-							ErrorPrint(err)
-
-						} else {
-							tempCt, err := obj.Evaluator.MulNew(kernelResult, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d3])
-							ErrorPrint(err)
-
-							err = obj.Evaluator.Add(tempCt, d3ResultTemp, d3ResultTemp)
-							ErrorPrint(err)
-						}
-						err := obj.Evaluator.Rescale(d3ResultTemp, d3Result)
-						ErrorPrint(err)
-
-					} else {
-						*d3Result = *kernelResult
-					}
-				}
-
-				dBack := 1
-				if obj.dacToFor[dBack] != 1 {
-					// rotate and add
-					shift := 0
-					for j := 1; j < obj.convMap[obj.dacToForTreeDepth[dBack]][1]; j *= 2 {
-						if ((d2 >> shift) & 1) == 0 {
-							err = obj.Evaluator.Rotate(d3Result, obj.convMap[obj.dacToForTreeDepth[dBack]][shift+2], tempD2)
-							rot_num++
-							ErrorPrint(err)
-							err = obj.Evaluator.Add(d3Result, tempD2, d3Result)
-							ErrorPrint(err)
-						} else {
-							err = obj.Evaluator.Rotate(d3Result, -obj.convMap[obj.dacToForTreeDepth[dBack]][shift+2], tempD2)
-							rot_num++
-							ErrorPrint(err)
-							err = obj.Evaluator.Add(d3Result, tempD2, d3Result)
-							ErrorPrint(err)
-						}
-						shift++
-					}
-					// filter and combine
-					if d2 == 0 {
-						err := obj.Evaluator.Mul(d3Result, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d2], d2ResultTemp)
-						ErrorPrint(err)
-
-					} else {
-						tempCt, err := obj.Evaluator.MulNew(d3Result, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d2])
-						ErrorPrint(err)
-
-						err = obj.Evaluator.Add(tempCt, d2ResultTemp, d2ResultTemp)
-						ErrorPrint(err)
-					}
-
-					err = obj.Evaluator.Rescale(d2ResultTemp, d2Result)
-					ErrorPrint(err)
-				} else {
-					*d2Result = *d3Result
-				}
-			}
-
-			dBack := 0
-			if obj.dacToFor[dBack] != 1 {
-				// rotate and add
-				shift := 0
-				for j := 1; j < obj.convMap[obj.dacToForTreeDepth[dBack]][1]; j *= 2 {
-					if ((d1 >> shift) & 1) == 0 {
-						err = obj.Evaluator.Rotate(d2Result, obj.convMap[obj.dacToForTreeDepth[dBack]][shift+2], tempD1)
-						rot_num++
-						ErrorPrint(err)
-						err = obj.Evaluator.Add(d2Result, tempD1, d2Result)
-						ErrorPrint(err)
-					} else {
-						err = obj.Evaluator.Rotate(d2Result, -obj.convMap[obj.dacToForTreeDepth[dBack]][shift+2], tempD1)
-						rot_num++
-						ErrorPrint(err)
-						err = obj.Evaluator.Add(d2Result, tempD1, d2Result)
-						ErrorPrint(err)
-					}
-					shift++
-				}
-				// filter and combine
-				if d1 == 0 {
-					err := obj.Evaluator.Mul(d2Result, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d1], mainCipherTemp)
-					ErrorPrint(err)
-				} else {
-					tempCt, err := obj.Evaluator.MulNew(d2Result, obj.preCompFilters[obj.dacToForTreeDepth[dBack]][d1])
-					ErrorPrint(err)
-
-					err = obj.Evaluator.Add(tempCt, mainCipherTemp, mainCipherTemp)
-					ErrorPrint(err)
-				}
-				err = obj.Evaluator.Rescale(mainCipherTemp, mainCipher)
-				ErrorPrint(err)
-
-			} else {
-				*mainCipher = *d2Result
-			}
-		}
+		startKernel := beforeLastFilter * i //0 4 8 12
+		obj.dacForAdditionalDepth(mainCipher, startKernel, beforeLastFilter, obj.opType1LastTreeDepth, rotInput)
 
 		//opType 0
 		for treeDepth := obj.opType0TreeDepth; treeDepth < obj.lastFilterTreeDepth; treeDepth++ {
 			err = obj.Evaluator.Rotate(mainCipher, obj.convMap[treeDepth][1], tempCtLv1)
-			rot_num++
+			obj.rot_num++
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 			ErrorPrint(err)
@@ -396,13 +333,13 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		for j := 1; j < obj.convMap[obj.lastFilterTreeDepth][1]; j *= 2 {
 			if ((i >> shift) & 1) == 0 {
 				err = obj.Evaluator.Rotate(mainCipher, obj.convMap[obj.lastFilterTreeDepth][shift+2], tempCtLv1)
-				rot_num++
+				obj.rot_num++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 				ErrorPrint(err)
 			} else {
 				err = obj.Evaluator.Rotate(mainCipher, -obj.convMap[obj.lastFilterTreeDepth][shift+2], tempCtLv1)
-				rot_num++
+				obj.rot_num++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 				ErrorPrint(err)
@@ -435,7 +372,7 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	for i := 1; i < obj.convMap[obj.lastFilterTreeDepth+1][1]; i++ {
 		err = obj.Evaluator.Rotate(splitedCiphertext[i], obj.convMap[obj.lastFilterTreeDepth+1][i+1], splitedCiphertext[i])
-		rot_num++
+		obj.rot_num++
 		ErrorPrint(err)
 		err = obj.Evaluator.Add(splitedCiphertext[0], splitedCiphertext[i], splitedCiphertext[0])
 		ErrorPrint(err)
@@ -445,7 +382,7 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	for treeDepth := obj.lastFilterTreeDepth + 2; treeDepth < len(obj.convMap); treeDepth++ {
 		if obj.convMap[treeDepth][0] == 0 {
 			err = obj.Evaluator.Rotate(splitedCiphertext[0], obj.convMap[treeDepth][1], mainCipher)
-			rot_num++
+			obj.rot_num++
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(splitedCiphertext[0], mainCipher, splitedCiphertext[0])
 			ErrorPrint(err)
@@ -454,7 +391,7 @@ func (obj RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 	}
 
-	// fmt.Println("rot num: ", rot_num) //원
+	// fmt.Println("rot num: ", obj.rot_num) //원
 	return splitedCiphertext[0]
 }
 
