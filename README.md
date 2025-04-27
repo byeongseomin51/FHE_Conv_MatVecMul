@@ -38,7 +38,6 @@ All of our main algorithms are implemented in examples/rotopt/modules directory.
 Especially, convConfig.go correspons to that of APPENDIX A and APPENDIX B.       
 (Instead of Hierarchical rotation key system or small level key system, which implemented in hierarchyKey.go and smallLevelKey.go).       
 
-|ALL|If you write ALL or don't write any args, all of the test function will be started.||
 
 ## Additional Experiments
 New argument options have been added to demonstrate the generality and applicability of our algorithms.
