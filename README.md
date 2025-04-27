@@ -41,7 +41,18 @@ Especially, convConfig.go correspons to that of APPENDIX A and APPENDIX B.
 |ALL|If you write ALL or don't write any args, all of the test function will be started.||
 
 ## Additional Experiments
-New experiments added to show our 
+New argument options have been added to demonstrate the generality and applicability of our algorithms.
+
+For `otherConv` option, we implemented three types of convolution operations, used in the [Convolutional Vision Transformer (CvT)](https://openaccess.thecvf.com/content/ICCV2021/html/Wu_CvT_Introducing_Convolutions_to_Vision_Transformers_ICCV_2021_paper.html) and the Mamba-based text-video retrieval model ([MUSE: Mamba is an Efficient Multi-scale Learner for Text-Video Retrieval](https://ojs.aaai.org/index.php/AAAI/article/view/32778)).       
+For `paramTest` option, we support various CKKS parameter configurations, including:     
+
+- `PN16QP1761`
+- `PN15QP880CI`
+- `PN16QP1654pq`
+- `PN15QP827CIpq`
+
+These configurations are described in the [Lattigo official documentation](https://pkg.go.dev/github.com/tuneinsight/lattigo/v4@v4.1.1/ckks#section-readme).
+Please refers to the documentation for more details about CKKS parameter configurations.    
 
 |Argument|Description|
 |------|---|
