@@ -52,10 +52,10 @@ func main() {
 
 	// Convolution Tests 원
 	if Contains(args, "conv") || args[0] == "ALL" {
-		rotOptConvTimeTest(context, 2)
-		rotOptConvTimeTest(context, 3)
-		rotOptConvTimeTest(context, 4)
-		rotOptConvTimeTest(context, 5)
+		// rotOptConvTimeTest(context, 2)
+		// rotOptConvTimeTest(context, 3)
+		// rotOptConvTimeTest(context, 4)
+		// rotOptConvTimeTest(context, 5)
 		mulParConvTimeTest(context)
 	}
 
@@ -360,8 +360,8 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 
 	iter := 1
 	minStartCipherLevel := depth
-	// maxStartCipherLevel := cc.Params.MaxLevel() //원
-	maxStartCipherLevel := depth + 2
+	maxStartCipherLevel := cc.Params.MaxLevel()
+	// maxStartCipherLevel := depth + 2
 
 	for index := 0; index < len(convIDs); index++ {
 
@@ -432,7 +432,8 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 func mulParConvTimeTest(cc *customContext) {
 	fmt.Println("\nMultiplexed Parallel Convolution time test started!")
 
-	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	convIDs := []string{"CONV4"}
 
 	//Set iter
 	iter := 1

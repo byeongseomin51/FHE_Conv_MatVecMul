@@ -29,11 +29,21 @@ These are our arguments option.
 |blueprint|Extract current convolution's blueprint|Appendix A|
 |downsamp|Execution time comparison of rotation optimized downsampling and multiplexed parallel downsampling|Fig.14|
 |rotkey|Hierarchical rotation key system and small level key system test|TABLE 2|
-|fc|Apply parallel BSGS matrix-vector multiplication to fully connected layer.|Fig.15|
-|parBSGS|Execution time comparison of parallel BSGS matrix-vector multiplication and BSGS diagonal method. |Fig.15|
-|ALL|If you write ALL or don't write any args, all of the test function will be started.||
+|fc|Apply parallel BSGS matrix-vector multiplication to fully connected layer|Fig.15|
+|parBSGS|Execution time comparison of parallel BSGS matrix-vector multiplication and BSGS diagonal method |Fig.15|
+|ALL|If you write ALL or don't write any args, all of the test function will be started||
 
 ## Algorithm    
 All of our main algorithms are implemented in examples/rotopt/modules directory.      
 Especially, convConfig.go correspons to that of APPENDIX A and APPENDIX B.       
 (Instead of Hierarchical rotation key system or small level key system, which implemented in hierarchyKey.go and smallLevelKey.go).       
+
+|ALL|If you write ALL or don't write any args, all of the test function will be started.||
+
+## Additional Experiments
+New experiments added to show our 
+
+|Argument|Description|
+|------|---|
+|otherConv|Implementation of convolution operations used in convolution-integrated Transformer architectures and state space models (SSMs)|
+|paramTest|All algorithms can be tested under various CKKS parameter configurations|
