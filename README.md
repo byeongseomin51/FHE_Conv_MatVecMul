@@ -65,7 +65,8 @@ Please refers to the documentation for more details about CKKS parameter configu
 
 The results for otherConv are as follows:
 
-![stage2](https://github.com/user-attachments/assets/4f9cf178-aff8-4e9e-879c-cbb2129b70e5)
-![stage3](https://github.com/user-attachments/assets/b4e824ff-81be-4bb7-bf2d-6104197cfafd)
-![muse](https://github.com/user-attachments/assets/4266140e-3e2b-48f7-8cd7-f798e9161e6c)
+<img src="https://github.com/user-attachments/assets/4f9cf178-aff8-4e9e-879c-cbb2129b70e5" width="300"/>
+<img src="https://github.com/user-attachments/assets/b4e824ff-81be-4bb7-bf2d-6104197cfafd" width="300"/>
+<img src="https://github.com/user-attachments/assets/4266140e-3e2b-48f7-8cd7-f798e9161e6c" width="300"/>
+
 
