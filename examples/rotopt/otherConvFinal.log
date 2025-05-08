@@ -469,8 +469,8 @@ Rotation Optimized Convolution (for 8-depth consumed, complex AI model) time tes
 CKKS parameter set as : PN15QP880CI
 === convID : MUSE_PyramidGenConv, Depth : 8, CipherLevel : 8 ~ 17, iter : 1 === 
 startLevel executionTime(sec)
-8 32.216622345 
-9 35.140853827 
+8 31.216622345 
+9 34.140853827 
 10 40.85247868 
 11 46.138743066 
 12 50.84004486 

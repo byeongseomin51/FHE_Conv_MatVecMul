@@ -25,7 +25,7 @@ func NewRotOptDS(planes int, ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.P
 	preCompFilters := make([]*rlwe.Plaintext, 4)
 
 	//make plaintext
-	path := "engine/precomputed/rotOptDS/" + strconv.Itoa(planes) + "/"
+	path := "modules/precomputed/rotOptDS/" + strconv.Itoa(planes) + "/"
 	preCompStrideFilter := txtToPlain(ec, path+"stride.txt", params)
 	for i := 0; i < 4; i++ {
 		preCompFilters[i] = txtToPlain(ec, path+"filter"+strconv.Itoa(i)+".txt", params)
@@ -108,7 +108,7 @@ func RotOptDSRegister() []int {
 }
 
 func MakeTxtRotOptDS() {
-	path := "engine/precomputed/rotOptDS/"
+	path := "modules/precomputed/rotOptDS/"
 
 	// declare stride filter
 	stride16 := make([]float64, 32768)

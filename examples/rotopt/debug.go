@@ -329,7 +329,7 @@ func sample1DArray(arr []float64, start int, end int) {
 }
 func print1DArray(arr []float64) {
 	for i := 0; i < len(arr); i++ {
-		if arr[i] < 0.00001 && arr[i] > -0.00001 {
+		if arr[i] > 0.00001 || arr[i] < -0.00001 {
 			fmt.Printf("%v ", arr[i])
 		} else {
 			fmt.Print("0 ")
@@ -338,7 +338,6 @@ func print1DArray(arr []float64) {
 	}
 	fmt.Println()
 }
-
 func print2DArray(arr [][]float64) {
 	for i := 0; i < len(arr); i++ {
 		for j := 0; j < len(arr[i]); j++ {
@@ -807,6 +806,7 @@ func FloatToTxt(filePath string, floats []float64) {
 func txtToFloat(txtPath string) []float64 {
 	file, err := os.Open(txtPath)
 	if err != nil {
+		fmt.Print(err)
 		return nil
 	}
 	defer file.Close()
@@ -818,6 +818,7 @@ func txtToFloat(txtPath string) []float64 {
 	for scanner.Scan() {
 		floatVal, err := strconv.ParseFloat(scanner.Text(), 64)
 		if err != nil {
+			fmt.Print(err)
 			return nil
 		}
 
@@ -825,6 +826,7 @@ func txtToFloat(txtPath string) []float64 {
 	}
 
 	if err := scanner.Err(); err != nil {
+		fmt.Print(err)
 		return nil
 	}
 

@@ -37,8 +37,8 @@ func main() {
 	}
 
 	//CKKS settings 원
-	context := setCKKSEnv() //default CKKS environment
-	// context := setCKKSEnvUseParamSet("PN15QP880CI") //Lightest parameter set
+	// context := setCKKSEnv() //default CKKS environment
+	context := setCKKSEnvUseParamSet("PN15QP880CI") //Lightest parameter set
 
 	//basicOperationTimeTest
 	if Contains(args, "basic") || args[0] == "ALL" {
@@ -52,10 +52,10 @@ func main() {
 
 	// Convolution Tests 원
 	if Contains(args, "conv") || args[0] == "ALL" {
-		// rotOptConvTimeTest(context, 2)
-		// rotOptConvTimeTest(context, 3)
-		// rotOptConvTimeTest(context, 4)
-		// rotOptConvTimeTest(context, 5)
+		rotOptConvTimeTest(context, 2)
+		rotOptConvTimeTest(context, 3)
+		rotOptConvTimeTest(context, 4)
+		rotOptConvTimeTest(context, 5)
 		mulParConvTimeTest(context)
 	}
 
@@ -559,7 +559,8 @@ func parBSGSfullyConnectedAccuracyTest(cc *customContext) {
 	//Decryption
 	outputFloat := ciphertextToFloat(outputCt, cc)
 
-	fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
+	fmt.Println("EuclideanDistance : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
+
 }
 
 func mulParfullyConnectedAccuracyTest(cc *customContext) {
@@ -611,8 +612,7 @@ func mulParfullyConnectedAccuracyTest(cc *customContext) {
 	//Decryption
 	outputFloat := ciphertextToFloat(outputCt, cc)
 
-	fmt.Println("Accuracy : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
-
+	fmt.Println("EuclideanDistance : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
 }
 
 func rotOptDownSamplingTest(cc *customContext) {
@@ -1088,7 +1088,7 @@ func basicOperationTimeTest(cc *customContext) {
 }
 
 func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
-	fmt.Println("Conventional BSGS diagonal matrix-vector multiplication Test!")
+	fmt.Println("\nConventional BSGS diagonal matrix-vector multiplication Test!")
 	fmt.Println("matrix : ", N, "x", N, "  vector : ", N, "x", 1)
 	nt := 32768
 
@@ -1109,6 +1109,7 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	matVecMul := modules.NewBsgsDiagMatVecMul(A, N, nt, newEvaluator, cc.Encoder, cc.Params)
 
 	fmt.Printf("startLevel executionTime\n")
+	edAvg := 0.0
 	for level := 1; level <= cc.Params.MaxLevel(); level++ {
 
 		Bct := floatToCiphertextLevel(B1d, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -1118,13 +1119,16 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 		endTime := time.Now()
 		outputFloat := ciphertextToFloat(BctOut, cc)
 
-		euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
+		edAvg += euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
 		// fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
 		fmt.Println(level, endTime.Sub(startTime))
+
 	}
+	edAvg = edAvg / float64(cc.Params.MaxLevel())
+	fmt.Println("Average Euclidean Distance : ", edAvg)
 }
 func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
-	fmt.Println("Parallel BSGS matrix-vector multiplication Test!")
+	fmt.Println("\nParallel BSGS matrix-vector multiplication Test!")
 	fmt.Println("matrix : ", N, "x", N, "  vector : ", N, "x", 1)
 	nt := cc.Params.MaxSlots()
 	pi := 1 //initially setting. (how many identical datas are in single ciphertext)
@@ -1148,6 +1152,7 @@ func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	matVecMul := modules.NewParBsgsDiagMatVecMul(A, N, nt, pi, newEvaluator, cc.Encoder, cc.Params)
 
 	fmt.Printf("startLevel executionTime\n")
+	edAvg := 0.0
 	for level := 1; level <= cc.Params.MaxLevel(); level++ {
 
 		Bct := floatToCiphertextLevel(B1d, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -1157,10 +1162,12 @@ func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 		endTime := time.Now()
 		outputFloat := ciphertextToFloat(BctOut, cc)
 
-		euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
+		edAvg += euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
 		// fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
 		fmt.Println(level, endTime.Sub(startTime))
 	}
+	edAvg = edAvg / float64(cc.Params.MaxLevel())
+	fmt.Println("Average Euclidean Distance : ", edAvg)
 }
 func Contains(slice []string, str string) bool {
 	for _, v := range slice {

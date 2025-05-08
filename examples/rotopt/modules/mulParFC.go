@@ -21,7 +21,7 @@ type MulParFC struct {
 
 func NewMulParFC(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, layer int) *MulParFC {
 	// fmt.Println("MulParFC : ", layer)
-	path := "engine/precomputed/parFC/" + strconv.Itoa(layer) + "/"
+	path := "modules/precomputed/parFC/" + strconv.Itoa(layer) + "/"
 
 	//declare
 	weights := make([][]float64, 10)
@@ -63,10 +63,10 @@ func (obj MulParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	//Make initializer
 	ctOut, _ = obj.Evaluator.RotateNew(ctIn, -9)
-	relinTemp, err := obj.Evaluator.MulRelinNew(ctOut, obj.preCompLeftover)
+	cipherTemp, err := obj.Evaluator.MulNew(ctOut, obj.preCompLeftover)
 	ErrorPrint(err)
-	obj.Evaluator.Rescale(relinTemp, ctOut)
-
+	err = obj.Evaluator.Rescale(cipherTemp, ctOut)
+	ErrorPrint(err)
 	for par := 0; par < 8; par++ {
 		tempCipher := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 		for i := 0; i < 9; i++ {
@@ -92,7 +92,7 @@ func (obj MulParFC) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 func MulParFCRegister() []int {
 
-	rotateNums := []int{-8, -7, -6, -5, -4, -3, -2, -1,
+	rotateNums := []int{-9, -8, -7, -6, -5, -4, -3, -2, -1,
 		9, 18, 27, 36, 45, 54, 63,
 	}
 
