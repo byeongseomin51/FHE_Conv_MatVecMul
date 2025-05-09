@@ -876,7 +876,7 @@ func GetFirstLocate(channel int, sameCopy int, k int) int {
 
 	return locate
 }
-func getPrettyMatrix(h int, w int) [][]float64 {
+func getMatrix(h int, w int) [][]float64 {
 	result := make([][]float64, h)
 	for i := range result {
 		result[i] = make([]float64, w)
@@ -884,7 +884,7 @@ func getPrettyMatrix(h int, w int) [][]float64 {
 
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
-			result[i][j] = float64(10*i+j) / 100.0
+			result[i][j] = sampling.RandFloat64(-1, 1)
 		}
 	}
 	return result

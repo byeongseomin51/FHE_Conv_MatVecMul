@@ -30,7 +30,7 @@ These are our arguments option.
 |downsamp|Execution time comparison of rotation optimized downsampling and multiplexed parallel downsampling|Fig.14|
 |rotkey|Hierarchical rotation key system and small level key system test|TABLE 2|
 |fc|Apply parallel BSGS matrix-vector multiplication to fully connected layer|Fig.15|
-|parBSGS|Execution time comparison of parallel BSGS matrix-vector multiplication and BSGS diagonal method |Fig.15|
+|matVecMul|Execution time comparison of parallel BSGS matrix-vector multiplication and BSGS diagonal method |Fig.15|
 |ALL|If you write ALL or don't write any args, all of the test function will be started||
 
 ## Algorithm    

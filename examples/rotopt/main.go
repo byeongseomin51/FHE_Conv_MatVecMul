@@ -84,7 +84,7 @@ func main() {
 		parBSGSfullyConnectedAccuracyTest(context) //using parallel BSGS matrix-vector multiplication to fully connected layer.
 		mulParfullyConnectedAccuracyTest(context)  //conventional
 	}
-	if Contains(args, "parBSGS") || args[0] == "ALL" {
+	if Contains(args, "matVecMul") || args[0] == "ALL" {
 		for N := 32; N <= 512; N *= 2 {
 			parBsgsMatVecMultAccuracyTest(N, context) //proposed
 			bsgsMatVecMultAccuracyTest(N, context)    //conventional
@@ -1094,8 +1094,8 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 
 	fmt.Printf("=== Conevntional (BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
 
-	A := getPrettyMatrix(N, N)
-	B := getPrettyMatrix(N, 1)
+	A := getMatrix(N, N)
+	B := getMatrix(N, 1)
 
 	//answer
 	answer := originalMatMul(A, B)
@@ -1120,6 +1120,8 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 		outputFloat := ciphertextToFloat(BctOut, cc)
 
 		edAvg += euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
+		// print1DArray(outputFloat[0:N])
+		// print1DArray(make2dTo1d(answer))
 		// fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
 		fmt.Println(level, endTime.Sub(startTime))
 
@@ -1131,12 +1133,13 @@ func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	fmt.Println("\nParallel BSGS matrix-vector multiplication Test!")
 	fmt.Println("matrix : ", N, "x", N, "  vector : ", N, "x", 1)
 	nt := cc.Params.MaxSlots()
+
 	pi := 1 //initially setting. (how many identical datas are in single ciphertext)
 
 	fmt.Printf("=== Proposed (Parallely BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
 
-	A := getPrettyMatrix(N, N)
-	B := getPrettyMatrix(N, 1)
+	A := getMatrix(N, N)
+	B := getMatrix(N, 1)
 
 	answer := originalMatMul(A, B)
 

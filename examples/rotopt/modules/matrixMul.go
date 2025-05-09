@@ -16,6 +16,7 @@ import (
 // ///////////////////////////////////////////////////////////////////////////////////////////////////////
 type BsgsDiagMatVecMul struct {
 	Evaluator *ckks.Evaluator
+	params    ckks.Parameters
 	N         int //N=n1*n2
 	n1        int
 	n2        int
@@ -25,6 +26,7 @@ type BsgsDiagMatVecMul struct {
 
 type ParBsgsDiagMatVecMul struct {
 	Evaluator *ckks.Evaluator
+	params    ckks.Parameters
 	N         int //N=n1*n2
 	n1        int
 	n2        int //>=pi, <=nt/(2*N)
@@ -56,6 +58,7 @@ func NewBsgsDiagMatVecMul(weight [][]float64, N int, nt int, ev *ckks.Evaluator,
 
 	return &BsgsDiagMatVecMul{
 		Evaluator: ev,
+		params:    params,
 		N:         N,
 		n1:        n1,
 		n2:        n2,
@@ -81,6 +84,11 @@ func NewParBsgsDiagMatVecMul(weight [][]float64, N int, nt int, pi int, ev *ckks
 			tempD := rotate(d[j*n1+i], -n1*j-(nt/n2)*j)
 			D[i] = add(D[i], tempD)
 		}
+
+		// fmt.Printf("For D[%v]\n", i)
+		// for l := 0; l < len(D[i]); l++ {
+		// 	fmt.Printf("%v ", D[i][l])
+		// }
 	}
 
 	plainD := make([]*rlwe.Plaintext, n1)
@@ -90,6 +98,7 @@ func NewParBsgsDiagMatVecMul(weight [][]float64, N int, nt int, pi int, ev *ckks
 
 	return &ParBsgsDiagMatVecMul{
 		Evaluator: ev,
+		params:    params,
 		N:         N,
 		n1:        n1,
 		n2:        n2,
@@ -99,7 +108,7 @@ func NewParBsgsDiagMatVecMul(weight [][]float64, N int, nt int, pi int, ev *ckks
 	}
 }
 
-func (obj BsgsDiagMatVecMul) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+func (obj *BsgsDiagMatVecMul) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	temp, err := obj.Evaluator.RotateNew(ctIn, -obj.N)
 	ErrorPrint(err)
 	obj.Evaluator.Add(ctIn, temp, ctIn)
@@ -151,8 +160,10 @@ func (obj BsgsDiagMatVecMul) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 	return ctOut
 }
 
-func (obj ParBsgsDiagMatVecMul) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
+func (obj *ParBsgsDiagMatVecMul) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	//for non-fit size ciphertext
+	ctOutTemp := ckks.NewCiphertext(obj.params, 1, ctIn.Level())
+	ctOut = ckks.NewCiphertext(obj.params, 1, ctIn.Level())
 	temp, err := obj.Evaluator.RotateNew(ctIn, -obj.N)
 	ErrorPrint(err)
 	obj.Evaluator.Add(ctIn, temp, ctIn)
@@ -166,18 +177,18 @@ func (obj ParBsgsDiagMatVecMul) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphe
 	//multiplication
 	for i := 0; i < obj.n1; i++ {
 		if i == 0 {
-			ctOut, err = obj.Evaluator.MulNew(ctIn, obj.D[i])
+			ctOutTemp, err = obj.Evaluator.MulNew(ctIn, obj.D[i])
 			ErrorPrint(err)
 		} else {
 			rotatedB, err := obj.Evaluator.RotateNew(ctIn, i)
 			ErrorPrint(err)
 			tempB, err := obj.Evaluator.MulNew(rotatedB, obj.D[i])
 			ErrorPrint(err)
-			err = obj.Evaluator.Add(tempB, ctOut, ctOut)
+			err = obj.Evaluator.Add(tempB, ctOutTemp, ctOutTemp)
 			ErrorPrint(err)
 		}
 	}
-	err = obj.Evaluator.Rescale(ctOut, ctOut)
+	err = obj.Evaluator.Rescale(ctOutTemp, ctOut)
 	ErrorPrint(err)
 
 	//gather result
