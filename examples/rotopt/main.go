@@ -37,8 +37,8 @@ func main() {
 	}
 
 	//CKKS settings 원
-	// context := setCKKSEnv() //default CKKS environment
-	context := setCKKSEnvUseParamSet("PN15QP880CI") //Lightest parameter set
+	context := setCKKSEnv() //default CKKS environment
+	// context := setCKKSEnvUseParamSet("PN15QP880CI") //Lightest parameter set
 
 	//basicOperationTimeTest
 	if Contains(args, "basic") || args[0] == "ALL" {
@@ -559,8 +559,10 @@ func parBSGSfullyConnectedAccuracyTest(cc *customContext) {
 	//Decryption
 	outputFloat := ciphertextToFloat(outputCt, cc)
 
-	fmt.Println("EuclideanDistance : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
-
+	scores := MSE_RE_infNorm_1D(outputFloat[0:10], trueOutputFloat)
+	fmt.Printf("MSE (Mean Squared Error)   : %.2e\n", scores[0])
+	fmt.Printf("Relative Error             : %.2e\n", scores[1])
+	fmt.Printf("Infinity Norm (L-infinity) : %.2e\n", scores[2])
 }
 
 func mulParfullyConnectedAccuracyTest(cc *customContext) {
@@ -612,7 +614,10 @@ func mulParfullyConnectedAccuracyTest(cc *customContext) {
 	//Decryption
 	outputFloat := ciphertextToFloat(outputCt, cc)
 
-	fmt.Println("EuclideanDistance : ", euclideanDistance(outputFloat[0:10], trueOutputFloat))
+	scores := MSE_RE_infNorm_1D(outputFloat[0:10], trueOutputFloat)
+	fmt.Printf("MSE (Mean Squared Error)   : %.2e\n", scores[0])
+	fmt.Printf("Relative Error             : %.2e\n", scores[1])
+	fmt.Printf("Infinity Norm (L-infinity) : %.2e\n", scores[2])
 }
 
 func rotOptDownSamplingTest(cc *customContext) {
@@ -1092,7 +1097,7 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	fmt.Println("matrix : ", N, "x", N, "  vector : ", N, "x", 1)
 	nt := 32768
 
-	fmt.Printf("=== Conevntional (BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
+	fmt.Printf("=== Conventional (BSGS diag mat(N*N)-vec(N*1) mul) method start! N : %v ===\n", N)
 
 	A := getMatrix(N, N)
 	B := getMatrix(N, 1)
@@ -1109,7 +1114,7 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	matVecMul := modules.NewBsgsDiagMatVecMul(A, N, nt, newEvaluator, cc.Encoder, cc.Params)
 
 	fmt.Printf("startLevel executionTime\n")
-	edAvg := 0.0
+	var MSEList, REList, infNormList []float64
 	for level := 1; level <= cc.Params.MaxLevel(); level++ {
 
 		Bct := floatToCiphertextLevel(B1d, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -1119,15 +1124,20 @@ func bsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 		endTime := time.Now()
 		outputFloat := ciphertextToFloat(BctOut, cc)
 
-		edAvg += euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
-		// print1DArray(outputFloat[0:N])
-		// print1DArray(make2dTo1d(answer))
-		// fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
-		fmt.Println(level, endTime.Sub(startTime))
+		scores := MSE_RE_infNorm_1D(outputFloat[0:N], make2dTo1d(answer))
+		MSEList = append(MSEList, scores[0])
+		REList = append(REList, scores[1])
+		infNormList = append(infNormList, scores[2])
 
+		fmt.Println(level, endTime.Sub(startTime))
 	}
-	edAvg = edAvg / float64(cc.Params.MaxLevel())
-	fmt.Println("Average Euclidean Distance : ", edAvg)
+	MSEMin, MSEMax, MSEAvg := minMaxAvg(MSEList)
+	REMin, REMax, REAvg := minMaxAvg(REList)
+	infNormMin, infNormMax, infNormAvg := minMaxAvg(infNormList)
+
+	fmt.Printf("MSE (Mean Squared Error)   : Min = %.2e, Max = %.2e, Avg = %.2e\n", MSEMin, MSEMax, MSEAvg)
+	fmt.Printf("Relative Error             : Min = %.2e, Max = %.2e, Avg = %.2e\n", REMin, REMax, REAvg)
+	fmt.Printf("Infinity Norm (L-infinity) : Min = %.2e, Max = %.2e, Avg = %.2e\n", infNormMin, infNormMax, infNormAvg)
 }
 func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	fmt.Println("\nParallel BSGS matrix-vector multiplication Test!")
@@ -1155,7 +1165,7 @@ func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 	matVecMul := modules.NewParBsgsDiagMatVecMul(A, N, nt, pi, newEvaluator, cc.Encoder, cc.Params)
 
 	fmt.Printf("startLevel executionTime\n")
-	edAvg := 0.0
+	var MSEList, REList, infNormList []float64
 	for level := 1; level <= cc.Params.MaxLevel(); level++ {
 
 		Bct := floatToCiphertextLevel(B1d, level, cc.Params, cc.Encoder, cc.EncryptorSk)
@@ -1165,12 +1175,20 @@ func parBsgsMatVecMultAccuracyTest(N int, cc *customContext) {
 		endTime := time.Now()
 		outputFloat := ciphertextToFloat(BctOut, cc)
 
-		edAvg += euclideanDistance(outputFloat[0:N], make2dTo1d(answer))
-		// fmt.Println(level, TimeDurToFloatSec(endTime.Sub(startTime)))
+		scores := MSE_RE_infNorm_1D(outputFloat[0:N], make2dTo1d(answer))
+		MSEList = append(MSEList, scores[0])
+		REList = append(REList, scores[1])
+		infNormList = append(infNormList, scores[2])
+
 		fmt.Println(level, endTime.Sub(startTime))
 	}
-	edAvg = edAvg / float64(cc.Params.MaxLevel())
-	fmt.Println("Average Euclidean Distance : ", edAvg)
+	MSEMin, MSEMax, MSEAvg := minMaxAvg(MSEList)
+	REMin, REMax, REAvg := minMaxAvg(REList)
+	infNormMin, infNormMax, infNormAvg := minMaxAvg(infNormList)
+
+	fmt.Printf("MSE (Mean Squared Error)   : Min = %.2e, Max = %.2e, Avg = %.2e\n", MSEMin, MSEMax, MSEAvg)
+	fmt.Printf("Relative Error             : Min = %.2e, Max = %.2e, Avg = %.2e\n", REMin, REMax, REAvg)
+	fmt.Printf("Infinity Norm (L-infinity) : Min = %.2e, Max = %.2e, Avg = %.2e\n", infNormMin, infNormMax, infNormAvg)
 }
 func Contains(slice []string, str string) bool {
 	for _, v := range slice {

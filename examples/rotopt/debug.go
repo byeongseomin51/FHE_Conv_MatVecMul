@@ -702,10 +702,7 @@ func InfinityNormDiff(a, b []float64) float64 {
 }
 
 // function to calculate accuracy, recall, f1-score
-func MSE_RE_infNorm(trueVal [][][]float64, predictVal [][][]float64) []float64 {
-	trueFlat := flatten(trueVal)
-	predFlat := flatten(predictVal)
-
+func MSE_RE_infNorm_1D(trueFlat []float64, predFlat []float64) []float64 {
 	if len(trueFlat) != len(predFlat) {
 		fmt.Printf("true val len :%v, FHE val len :%v\n", len(trueFlat), len(predFlat))
 		panic("MSE_RE_bitAcc : Length mismatch between true values and predicted values")
@@ -723,6 +720,14 @@ func MSE_RE_infNorm(trueVal [][][]float64, predictVal [][][]float64) []float64 {
 	infNormVal := InfinityNormDiff(trueFlat, predFlat)
 
 	return []float64{mseVal, reVal, infNormVal}
+}
+
+// function to calculate accuracy, recall, f1-score
+func MSE_RE_infNorm(trueVal [][][]float64, predictVal [][][]float64) []float64 {
+	trueFlat := flatten(trueVal)
+	predFlat := flatten(predictVal)
+
+	return MSE_RE_infNorm_1D(trueFlat, predFlat)
 
 }
 
