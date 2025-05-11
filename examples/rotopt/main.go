@@ -432,8 +432,8 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 func mulParConvTimeTest(cc *customContext) {
 	fmt.Println("\nMultiplexed Parallel Convolution time test started!")
 
-	// convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	convIDs := []string{"CONV4"}
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
+	// convIDs := []string{"CONV4"}
 
 	//Set iter
 	iter := 1
