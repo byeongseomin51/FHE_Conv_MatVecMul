@@ -47,7 +47,8 @@ Each convolution detail:
 - **CvTCifar100Stage2**: This convolution embedding is used in Stage 2 of the Convolutional Vision Transformer (CvT) when performing inference on the CIFAR-100 dataset.
 - **CvTCifar100Stage3**: This convolution embedding is used in Stage 3 of CvT for the CIFAR-100 dataset.
 - **MUSE_PyramidGenConv**: This convolution is used to generate a multi-scale feature pyramid from the final single-scale feature map of CLIP in the MUSE model.
-- 
+
+
 For `paramTest` option, we support various CKKS parameter configurations, including:     
 
 - `PN16QP1761`
