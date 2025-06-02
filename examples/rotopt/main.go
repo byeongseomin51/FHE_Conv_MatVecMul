@@ -36,9 +36,9 @@ func main() {
 		fmt.Println("args : ", args)
 	}
 
-	//CKKS settings 원
-	context := setCKKSEnv() //default CKKS environment
-	// context := setCKKSEnvUseParamSet("PN15QP880CI") //Lightest parameter set
+	//CKKS settings
+	// context := setCKKSEnv() //default CKKS environment
+	context := setCKKSEnvUseParamSet("PN15QP880CI") //Lightest parameter set
 
 	//basicOperationTimeTest
 	if Contains(args, "basic") || args[0] == "ALL" {
@@ -50,7 +50,7 @@ func main() {
 	//Rotation Optimized Convolution Test//
 	///////////////////////////////////////
 
-	// Convolution Tests 원
+	// Convolution Tests
 	if Contains(args, "conv") || args[0] == "ALL" {
 		rotOptConvTimeTest(context, 2)
 		rotOptConvTimeTest(context, 3)
@@ -179,7 +179,7 @@ func otherRotOptConvTimeTest(cc *customContext, depth int) {
 	iter := 1
 	minStartCipherLevel := depth
 	maxStartCipherLevel := cc.Params.MaxLevel() //원
-	// maxStartCipherLevel := depth + 1
+	// maxStartCipherLevel := depth
 
 	for index := 0; index < len(convIDs); index++ {
 
@@ -192,6 +192,8 @@ func otherRotOptConvTimeTest(cc *customContext, depth int) {
 
 		//register index of rotation
 		rots := modules.RotOptConvRegister(convID, depth)
+		// fmt.Println(len(rots[0]), len(rots[1]), len(rots[2]), len(rots[0])+len(rots[1])+len(rots[2]))
+		// continue
 
 		//rotation key register
 		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
@@ -262,6 +264,7 @@ func otherMulParConvTimeTest(cc *customContext) {
 
 	minStartCipherLevel := 2
 	maxStartCipherLevel := cc.Params.MaxLevel()
+	// maxStartCipherLevel := 2
 
 	for index := 0; index < len(convIDs); index++ {
 		// Get ConvID
@@ -275,6 +278,8 @@ func otherMulParConvTimeTest(cc *customContext) {
 
 		//register index of rotation
 		rots := modules.MulParConvRegister(convID)
+		// fmt.Println(len(rots[0]), len(rots[1]), len(rots[2]), len(rots[0])+len(rots[1])+len(rots[2]))
+		// continue
 
 		//rotation key register
 		newEvaluator := rotIndexToGaloisEl(int2dTo1d(rots), cc.Params, cc.Kgen, cc.Sk)
@@ -361,7 +366,7 @@ func rotOptConvTimeTest(cc *customContext, depth int) {
 	iter := 1
 	minStartCipherLevel := depth
 	maxStartCipherLevel := cc.Params.MaxLevel()
-	// maxStartCipherLevel := depth + 2
+	// maxStartCipherLevel := depth
 
 	for index := 0; index < len(convIDs); index++ {
 
@@ -439,8 +444,8 @@ func mulParConvTimeTest(cc *customContext) {
 	iter := 1
 
 	minStartCipherLevel := 2
-	maxStartCipherLevel := cc.Params.MaxLevel() //원원
-	// maxStartCipherLevel := 3
+	maxStartCipherLevel := cc.Params.MaxLevel()
+	// maxStartCipherLevel := 2
 
 	for index := 0; index < len(convIDs); index++ {
 		convID := convIDs[index]
@@ -993,8 +998,8 @@ func getBluePrint() {
 	fmt.Println("Blue Print test started! Display all blueprint for convolution optimized convolutions.")
 	fmt.Println("You can test other blue prints in modules/convConfig.go")
 
-	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4"}
-	maxDepth := []int{2, 4, 5, 4, 5, 4}
+	convIDs := []string{"CONV1", "CONV2", "CONV3s2", "CONV3", "CONV4s2", "CONV4", "CvTCifar100Stage2", "CvTCifar100Stage3", "MUSE_PyramidGenConv"}
+	maxDepth := []int{2, 4, 5, 4, 5, 4, 5, 6, 6}
 
 	for index := 0; index < len(convIDs); index++ {
 		for depth := 2; depth <= maxDepth[index]; depth++ {

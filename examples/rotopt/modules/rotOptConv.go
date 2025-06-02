@@ -30,8 +30,10 @@ type RotOptConv struct {
 	splitNum int
 	depth    int
 
-	//for debug
-	rot_num int
+	//rot num count
+	rot_num  int
+	rot_num2 int
+	rot_num3 int
 }
 
 func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters, convID string, depth int) *RotOptConv {
@@ -95,7 +97,9 @@ func NewrotOptConv(ev *ckks.Evaluator, ec *ckks.Encoder, params ckks.Parameters,
 		depth:              depth,
 
 		//debug
-		rot_num: -1,
+		rot_num:  -1,
+		rot_num2: 0,
+		rot_num3: 0,
 	}
 }
 
@@ -108,7 +112,7 @@ func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 	var rotInput []*rlwe.Ciphertext
 	for w := 0; w < 9; w++ {
 		c, err := obj.Evaluator.RotateNew(ctIn, obj.rotIndex3by3Kernel[w])
-		// obj.rot_num++
+		obj.rot_num++
 		ErrorPrint(err)
 		rotInput = append(rotInput, c)
 	}
@@ -130,7 +134,7 @@ func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 		//opType 0
 		for treeDepth := obj.opType0TreeDepth; treeDepth < obj.lastFilterTreeDepth; treeDepth++ {
 			err = obj.Evaluator.Rotate(mainCipher, obj.convMap[treeDepth][1], tempCtLv1)
-			// obj.rot_num++
+			obj.rot_num2++
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 			ErrorPrint(err)
@@ -141,13 +145,13 @@ func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 		for j := 1; j < obj.convMap[obj.lastFilterTreeDepth][1]; j *= 2 {
 			if ((i >> shift) & 1) == 0 {
 				err = obj.Evaluator.Rotate(mainCipher, obj.convMap[obj.lastFilterTreeDepth][shift+2], tempCtLv1)
-				// obj.rot_num++
+				obj.rot_num2++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 				ErrorPrint(err)
 			} else {
 				err = obj.Evaluator.Rotate(mainCipher, -obj.convMap[obj.lastFilterTreeDepth][shift+2], tempCtLv1)
-				// obj.rot_num++
+				obj.rot_num2++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 				ErrorPrint(err)
@@ -179,7 +183,7 @@ func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 
 	for i := 1; i < obj.convMap[obj.lastFilterTreeDepth+1][1]; i++ {
 		err = obj.Evaluator.Rotate(splitedCiphertext[i], obj.convMap[obj.lastFilterTreeDepth+1][i+1], splitedCiphertext[i])
-		// obj.rot_num++
+		obj.rot_num3++
 		ErrorPrint(err)
 		err = obj.Evaluator.Add(splitedCiphertext[0], splitedCiphertext[i], splitedCiphertext[0])
 		ErrorPrint(err)
@@ -189,7 +193,7 @@ func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 	for treeDepth := obj.lastFilterTreeDepth + 2; treeDepth < len(obj.convMap); treeDepth++ {
 		if obj.convMap[treeDepth][0] == 0 {
 			err = obj.Evaluator.Rotate(splitedCiphertext[0], obj.convMap[treeDepth][1], mainCipher)
-			// obj.rot_num++
+			obj.rot_num3++
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(splitedCiphertext[0], mainCipher, splitedCiphertext[0])
 			ErrorPrint(err)
@@ -198,7 +202,10 @@ func (obj *RotOptConv) Foward2depth(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Cipherte
 		}
 	}
 
-	// fmt.Println("rot num: ", obj.rot_num) //원
+	fmt.Println("SISOConv: ", obj.rot_num)
+	fmt.Println("Rotation Sum: ", obj.rot_num2)
+	fmt.Println("ZeroOutCombine: ", obj.rot_num3)
+	fmt.Println("Sum: ", obj.rot_num+obj.rot_num2+obj.rot_num3)
 	return splitedCiphertext[0]
 }
 
@@ -238,13 +245,13 @@ func (obj *RotOptConv) dac_for_opType1(ctOut *rlwe.Ciphertext, startKernel int, 
 		for index := 2; index < curTreeLen; index++ {
 			if ((curCtNum >> (index - 2)) & 1) == 0 {
 				err := obj.Evaluator.Rotate(ctOutTemp, obj.convMap[curTreeDepth][index], tempCipher)
-				// obj.rot_num++
+				obj.rot_num2++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(ctOutTemp, tempCipher, ctOutTemp)
 				ErrorPrint(err)
 			} else {
 				err := obj.Evaluator.Rotate(ctOutTemp, -obj.convMap[curTreeDepth][index], tempCipher)
-				// obj.rot_num++
+				obj.rot_num2++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(ctOutTemp, tempCipher, ctOutTemp)
 				ErrorPrint(err)
@@ -260,13 +267,13 @@ func (obj *RotOptConv) dac_for_opType1(ctOut *rlwe.Ciphertext, startKernel int, 
 			for index := 2; index < curTreeLen; index++ {
 				if ((curCtNum >> (index - 2)) & 1) == 0 {
 					err := obj.Evaluator.Rotate(ctOutTemp, obj.convMap[curTreeDepth][index], tempCipher)
-					// obj.rot_num++
+					obj.rot_num2++
 					ErrorPrint(err)
 					err = obj.Evaluator.Add(ctOutTemp, tempCipher, ctOutTemp)
 					ErrorPrint(err)
 				} else {
 					err := obj.Evaluator.Rotate(ctOutTemp, -obj.convMap[curTreeDepth][index], tempCipher)
-					// obj.rot_num++
+					obj.rot_num2++
 					ErrorPrint(err)
 					err = obj.Evaluator.Add(ctOutTemp, tempCipher, ctOutTemp)
 					ErrorPrint(err)
@@ -303,7 +310,7 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	var rotInput []*rlwe.Ciphertext
 	for w := 0; w < 9; w++ {
 		c, err := obj.Evaluator.RotateNew(ctIn, obj.rotIndex3by3Kernel[w])
-		// obj.rot_num++
+		obj.rot_num++
 		ErrorPrint(err)
 		rotInput = append(rotInput, c)
 	}
@@ -320,7 +327,7 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		//opType 0
 		for treeDepth := obj.opType0TreeDepth; treeDepth < obj.lastFilterTreeDepth; treeDepth++ {
 			err = obj.Evaluator.Rotate(mainCipher, obj.convMap[treeDepth][1], tempCtLv1)
-			// obj.rot_num++
+			obj.rot_num2++
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 			ErrorPrint(err)
@@ -331,13 +338,13 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		for j := 1; j < obj.convMap[obj.lastFilterTreeDepth][1]; j *= 2 {
 			if ((i >> shift) & 1) == 0 {
 				err = obj.Evaluator.Rotate(mainCipher, obj.convMap[obj.lastFilterTreeDepth][shift+2], tempCtLv1)
-				// obj.rot_num++
+				obj.rot_num2++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 				ErrorPrint(err)
 			} else {
 				err = obj.Evaluator.Rotate(mainCipher, -obj.convMap[obj.lastFilterTreeDepth][shift+2], tempCtLv1)
-				// obj.rot_num++
+				obj.rot_num2++
 				ErrorPrint(err)
 				err = obj.Evaluator.Add(mainCipher, tempCtLv1, mainCipher)
 				ErrorPrint(err)
@@ -370,7 +377,7 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 
 	for i := 1; i < obj.convMap[obj.lastFilterTreeDepth+1][1]; i++ {
 		err = obj.Evaluator.Rotate(splitedCiphertext[i], obj.convMap[obj.lastFilterTreeDepth+1][i+1], splitedCiphertext[i])
-		// obj.rot_num++
+		obj.rot_num3++
 		ErrorPrint(err)
 		err = obj.Evaluator.Add(splitedCiphertext[0], splitedCiphertext[i], splitedCiphertext[0])
 		ErrorPrint(err)
@@ -380,7 +387,7 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 	for treeDepth := obj.lastFilterTreeDepth + 2; treeDepth < len(obj.convMap); treeDepth++ {
 		if obj.convMap[treeDepth][0] == 0 {
 			err = obj.Evaluator.Rotate(splitedCiphertext[0], obj.convMap[treeDepth][1], mainCipher)
-			// obj.rot_num++
+			obj.rot_num3++
 			ErrorPrint(err)
 			err = obj.Evaluator.Add(splitedCiphertext[0], mainCipher, splitedCiphertext[0])
 			ErrorPrint(err)
@@ -389,7 +396,10 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 	}
 
-	// fmt.Println("rot num: ", obj.rot_num) //원
+	fmt.Println("SISOConv: ", obj.rot_num)
+	fmt.Println("Rotation Sum: ", obj.rot_num2)
+	fmt.Println("ZeroOutCombine: ", obj.rot_num3)
+	fmt.Println("Sum: ", obj.rot_num+obj.rot_num2+obj.rot_num3)
 	return splitedCiphertext[0]
 }
 
