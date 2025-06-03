@@ -396,10 +396,10 @@ func (obj *RotOptConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		}
 	}
 
-	fmt.Println("SISOConv: ", obj.rot_num)
-	fmt.Println("Rotation Sum: ", obj.rot_num2)
-	fmt.Println("ZeroOutCombine: ", obj.rot_num3)
-	fmt.Println("Sum: ", obj.rot_num+obj.rot_num2+obj.rot_num3)
+	// fmt.Println("SISOConv: ", obj.rot_num)
+	// fmt.Println("Rotation Sum: ", obj.rot_num2)
+	// fmt.Println("ZeroOutCombine: ", obj.rot_num3)
+	// fmt.Println("Sum: ", obj.rot_num+obj.rot_num2+obj.rot_num3)
 	return splitedCiphertext[0]
 }
 
