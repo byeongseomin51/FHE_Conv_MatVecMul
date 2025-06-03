@@ -37,8 +37,8 @@ func main() {
 	}
 
 	//CKKS settings
-	// context := setCKKSEnv() //default CKKS environment
-	context := setCKKSEnvUseParamSet("PN15QP880CI") //Lightest parameter set
+	context := setCKKSEnv() //default CKKS environment
+	// context := setCKKSEnvUseParamSet("PN15QP880CI") //Lightest parameter set
 
 	//basicOperationTimeTest
 	if Contains(args, "basic") || args[0] == "ALL" {
