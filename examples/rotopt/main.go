@@ -20,13 +20,17 @@ func main() {
 	//go run . conv parBSGS rotkey
 
 	//== supported args ======================================================================================================================================//
-	// basic : Execution time of rotation, multiplication, addition in our CKKS environment.
-	// conv : Time comparison between rotation optimized convolution and multiplexed parallel convolution.
-	// blueprint : Extract current blueprint.
-	// downsamp : Time comparison between rotation optimized downsampling and multiplexed parllel downsampling.
-	// rotkey : Rotation key reduction test.
-	// parBSGS :Time comparison between Parallel BSGS matrix vector multiplication and BSGS diagonal method.
-	// fc : Apply Parallel BSGS matrix vector multiplication to Fully Connected Layer of Resnet20(CIFAR-10 images.) where matrx(10x64) vector(64x1) result(10x1).
+	// basic       : Execution time of rotation, multiplication, addition in our CKKS environment. [Fig.1]
+	// conv        : Execution time comparison of rotation optimized convolution and multiplexed parallel convolution. [Fig.13]
+	// otherConv   : Execution time of convolution operations used in convolution-integrated Transformer models and state space models (SSMs):
+	//               CvT-CIFAR100 Stage 2 & 3, and MUSE_PyramidGenConv. [Fig.13]
+	// blueprint   : Extract each convolution's blueprint. [Appendix A]
+	// rotkey      : Hierarchical rotation key system and small level key system test. [TABLE 2]
+	// fc          : Apply parallel BSGS matrix-vector multiplication to fully connected layer. [Fig.14]
+	// matVecMul   : Execution time comparison of parallel BSGS matrix-vector multiplication and BSGS diagonal method. [Fig.14]
+	// paramTest   : Supports various CKKS parameter configurations (`PN16QP1761`, `PN15QP880CI`, `PN16QP1654pq`, `PN15QP827CIpq`)
+	//               based on Lattigo's official parameter sets: https://pkg.go.dev/github.com/tuneinsight/lattigo/v4@v4.1.1/ckks#section-readme
+	// ALL         : If you write ALL or don't write any args, all of the test function will be started.
 	//=========================================================================================================================================================//
 
 	if len(args) == 0 {
@@ -64,12 +68,6 @@ func main() {
 		getBluePrint()
 	}
 
-	// Downsampling Tests
-	if Contains(args, "downsamp") || args[0] == "ALL" {
-		rotOptDownSamplingTest(context)
-		mulParDownSamplingTest(context)
-	}
-
 	// RotKey Test
 	if Contains(args, "rotkey") || args[0] == "ALL" {
 		HierarchyKeyTest()      //Hierarchical two-level rotation key system.
@@ -96,6 +94,23 @@ func main() {
 	/////////////////////////////////////
 	//args["conv"] updated. (accuracy calculate)
 
+	// Generalization of different AI models
+	if Contains(args, "otherConv") || args[0] == "ALL" {
+		// Each convolution refers to...
+		// CvTCifar100Stage2, CvTCifar100Stage3 : convolutional embedding in CvT (Convolutional Vision Transformer) model.
+		// MUSE_PyramidGenConv 			  		: create a multi-scale feature pyramid from a single-scale feature map in MUSE (a model based on Mamba). https://ojs.aaai.org/index.php/AAAI/article/view/32778
+		otherMulParConvTimeTest(context)
+		otherRotOptConvTimeTest(context, 2)
+		otherRotOptConvTimeTest(context, 3)
+		otherRotOptConvTimeTest(context, 4)
+		otherRotOptConvTimeTest(context, 5)
+		otherRotOptConvTimeTest(context, 6)
+		otherRotOptConvTimeTest(context, 7)
+		otherRotOptConvTimeTest(context, 8)
+		otherRotOptConvTimeTest(context, 9)
+		otherRotOptConvTimeTest(context, 10)
+	}
+
 	// CKKS parameter settings
 	if Contains(args, "paramTest") || args[0] == "ALL" {
 		CKKSEnvSetList := []string{"PN16QP1761", "PN15QP880CI", "PN16QP1654pq", "PN15QP827CIpq"}
@@ -117,22 +132,6 @@ func main() {
 		}
 	}
 
-	// Generalization of different AI models
-	if Contains(args, "otherConv") || args[0] == "ALL" {
-		// Each convolution refers to...
-		// CvTCifar100Stage2, CvTCifar100Stage3 : convolutional embedding in CvT (Convolutional Vision Transformer) model.
-		// MUSE_PyramidGenConv 			  		: create a multi-scale feature pyramid from a single-scale feature map in MUSE (a model based on Mamba). https://ojs.aaai.org/index.php/AAAI/article/view/32778
-		otherMulParConvTimeTest(context)
-		otherRotOptConvTimeTest(context, 2)
-		otherRotOptConvTimeTest(context, 3)
-		otherRotOptConvTimeTest(context, 4)
-		otherRotOptConvTimeTest(context, 5)
-		otherRotOptConvTimeTest(context, 6)
-		otherRotOptConvTimeTest(context, 7)
-		otherRotOptConvTimeTest(context, 8)
-		otherRotOptConvTimeTest(context, 9)
-		otherRotOptConvTimeTest(context, 10)
-	}
 }
 
 type customContext struct {
@@ -623,108 +622,6 @@ func mulParfullyConnectedAccuracyTest(cc *customContext) {
 	fmt.Printf("MSE (Mean Squared Error)   : %.2e\n", scores[0])
 	fmt.Printf("Relative Error             : %.2e\n", scores[1])
 	fmt.Printf("Infinity Norm (L-infinity) : %.2e\n", scores[2])
-}
-
-func rotOptDownSamplingTest(cc *customContext) {
-	fmt.Println("Rotation Optimized Downsampling Test started! ")
-	//register
-	rot := modules.RotOptDSRegister()
-
-	//rot register
-	newEvaluator := RotIndexToGaloisElements(rot, cc)
-
-	//make avgPooling instance
-	ds16 := modules.NewRotOptDS(16, newEvaluator, cc.Encoder, cc.Params)
-	ds32 := modules.NewRotOptDS(32, newEvaluator, cc.Encoder, cc.Params)
-
-	//Make input float data
-	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
-
-	for level := 2; level <= cc.Params.MaxLevel(); level++ {
-		// Encryption
-		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
-		// /////////
-		// Timer start
-		startTime := time.Now()
-
-		// AvgPooling Foward
-		ds16.Foward(inputCt)
-
-		// Timer end
-		endTime := time.Now()
-
-		// Print Elapsed Time
-		// fmt.Printf("%v Time(DONWSAMP1) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
-		fmt.Printf("%v Time(DONWSAMP1) : %v \n", level, (endTime.Sub(startTime)))
-
-		// ////////
-		// Timer start
-		startTime = time.Now()
-
-		// AvgPooling Foward
-		ds32.Foward(inputCt)
-
-		// Timer end
-		endTime = time.Now()
-
-		// Print Elapsed Time
-		// fmt.Printf("%v Time(DOWNSAMP2) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
-		fmt.Printf("%v Time(DOWNSAMP2) : %v \n", level, (endTime.Sub(startTime)))
-
-	}
-
-}
-
-func mulParDownSamplingTest(cc *customContext) {
-	fmt.Println("Multiplexed Parallel Downsampling Test started! ")
-	//register
-	rot := modules.MulParDSRegister()
-
-	//rot register
-	newEvaluator := RotIndexToGaloisElements(rot, cc)
-
-	//make avgPooling instance
-	ds16 := modules.NewMulParDS(16, newEvaluator, cc.Encoder, cc.Params)
-	ds32 := modules.NewMulParDS(32, newEvaluator, cc.Encoder, cc.Params)
-
-	//Make input float data
-	inputFloat := makeRandomFloat(cc.Params.MaxSlots())
-
-	for level := 2; level <= cc.Params.MaxLevel(); level++ {
-		// Encryption
-		inputCt := floatToCiphertextLevel(inputFloat, level, cc.Params, cc.Encoder, cc.EncryptorSk)
-		// /////////
-		// Timer start
-		startTime := time.Now()
-
-		// AvgPooling Foward
-		ds16.Foward(inputCt)
-
-		// Timer end
-		endTime := time.Now()
-
-		// Print Elapsed Time
-		// fmt.Printf("%v Time(16) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
-		fmt.Printf("%v Time(DOWNSAMP1) : %v \n", level, (endTime.Sub(startTime)))
-
-		// ////////
-		// Timer start
-		startTime = time.Now()
-
-		// AvgPooling Foward
-		ds32.Foward(inputCt)
-
-		// Timer end
-		endTime = time.Now()
-
-		// Print Elapsed Time
-		// fmt.Printf("%v Time(32) : %v \n", level, TimeDurToFloatSec(endTime.Sub(startTime)))
-		fmt.Printf("%v Time(DOWNSAMP2) : %v \n", level, (endTime.Sub(startTime)))
-
-	}
-
-	// outputFloat16 := ciphertextToFloat(outputCt16, cc)
-	// outputFloat32 := ciphertextToFloat(outputCt32, cc)
 }
 
 func RotIndexToGaloisElements(input []int, context *customContext) *ckks.Evaluator {

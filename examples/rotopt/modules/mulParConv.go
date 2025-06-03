@@ -1,8 +1,6 @@
 package modules
 
 import (
-	"fmt"
-
 	"github.com/tuneinsight/lattigo/v5/core/rlwe"
 	"github.com/tuneinsight/lattigo/v5/schemes/ckks"
 )
@@ -119,7 +117,7 @@ func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		ErrorPrint(err)
 		rotInput = append(rotInput, c)
 	}
-	fmt.Println("SISOConv: ", rot_num)
+	// fmt.Println("SISOConv: ", rot_num)
 	// fmt.Println("rotate data ", time.Now().Sub(start))
 	rot_num2 := 0
 	rot_num3 := 0
@@ -182,9 +180,9 @@ func (obj *MulParConv) Foward(ctIn *rlwe.Ciphertext) (ctOut *rlwe.Ciphertext) {
 		obj.Evaluator.Add(ctOut, tempCtLv0, ctOut)
 	}
 
-	fmt.Println("Rotation Sum: ", rot_num2)
-	fmt.Println("ZeroOutCombine: ", rot_num3)
-	fmt.Println("Sum: ", rot_num+rot_num2+rot_num3)
+	// fmt.Println("Rotation Sum: ", rot_num2)
+	// fmt.Println("ZeroOutCombine: ", rot_num3)
+	// fmt.Println("Sum: ", rot_num+rot_num2+rot_num3)
 	//Add bn_add
 	// ctOut, err = obj.Evaluator.AddNew(ctOut, obj.preCompBNadd)
 	ErrorPrint(err)
