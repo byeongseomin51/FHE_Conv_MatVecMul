@@ -26,7 +26,7 @@ go run . parBSGS conv
 |Argument|Descript|Related Figure/Table
 |------|---|---|
 |`basic`|Execution time of rotation, multiplication, addition in our CKKS environment|Fig.1|
-|`conv`|Execution time comparison of rotation optimized convolution and multiplexed parallel convolution|Fig.13|
+|`conv`|Execution time of convolution operations used in ResNet|Fig.13|
 |`otherConv`|Execution time of convolution operations used in convolution-integrated Transformer models and state space models (SSMs): CvT-CIFAR100 Stage 2 & 3, and MUSE_PyramidGenConv|Fig.13|
 |`blueprint`|Extract each convolution's blueprint|Appendix A|
 |`rotkey`|Hierarchical rotation key system and small level key system test|TABLE 2|
